@@ -3,12 +3,16 @@ from torch.utils.data import DataLoader
 
 from model import EMModel
 from dataset import EMDataset
+from utils import load_dataset, preprocess_dataset
 
 NUM_EPOCHS = 10
 
 
 def train():
-    dataset = EMDataset()
+    dataset_train = load_dataset()
+    dataset_train = preprocess_dataset(dataset_train, )
+
+    dataset = EMDataset(dataset_train, normalize=True)
     data_loader = DataLoader(dataset,
                              batch_size=64,
                              shuffle=True)
