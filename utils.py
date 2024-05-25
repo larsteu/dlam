@@ -1,19 +1,28 @@
 import pandas as pd
 import json
 
-DATASET_PATH = ''  # TODO
-MAPPINGS_FILE_PATH = ''  # TODO
-CATEGORICAL_COLUMNS = []  # TODO
-TARGET_COLUMN = []  # TODO
-COLUMN_MAP = {}  # TODO
-COLUMNS_WITHOUT_TARGET = []  # TODO
+DATASET_PATH = ['./data/bundesliga_matches.csv',
+                './data/la_liga_matches.csv',
+                './data/ligue_1_matches.csv',
+                './data/premier_league_matches.csv',
+                './data/serie_a_matches.csv']
+MAPPINGS_FILE_PATH = './data/mappings.json'
+CATEGORICAL_COLUMNS = ['home/away',
+                       'player_name',
+                       'player_position',
+                       'game_won']
 
 
 def load_dataset():
-    return pd.read_csv(DATASET_PATH, quotechar='"', quoting=1)
+    dataset = pd.read_csv(DATASET_PATH[0])
+    for i in range(1, len(DATASET_PATH)):
+        df = pd.read_csv(DATASET_PATH[i])
+        dataset = pd.concat([dataset, df], ignore_index=True)
+    return dataset
 
 
-def preprocess_dataset(dataset):
+def preprocess_dataset(dataset: pd.DataFrame):
+    dataset.drop(columns=['Unnamed: 0', 'game_result'], inplace=True)
     processed_dataset, mappings = categories_to_numerical(dataset, CATEGORICAL_COLUMNS)
     with open(MAPPINGS_FILE_PATH, "w") as outfile:
         json.dump(mappings, outfile)

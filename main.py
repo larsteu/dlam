@@ -10,7 +10,7 @@ NUM_EPOCHS = 10
 
 def train():
     dataset_train = load_dataset()
-    dataset_train = preprocess_dataset(dataset_train, )
+    dataset_train = preprocess_dataset(dataset_train)
 
     dataset = EMDataset(dataset_train, normalize=True)
     data_loader = DataLoader(dataset,
