@@ -8,11 +8,22 @@ class EMModel(nn.Module):
         super().__init__()
         self.teamClassifier1 = TeamBlock()
         self.teamClassifier2 = TeamBlock()
-        self.gameClassifier = nn.Sequential()
+        self.gameClassifier = nn.Sequential(
+            nn.Linear(64, 32),
+            nn.ReLU(),
+            nn.Linear(32, 16),
+            nn.ReLU(),
+            nn.Linear(16, 8),
+            nn.ReLU(),
+            nn.Linear(8, 1),
+            nn.Sigmoid()
+        )
 
-    def forward(self, x):
-        x_1 = self.teamClassifier1(x[:, :10, :])
-        x_2 = self.teamClassifier1(x[:, 11:, :])
+    def forward(self, x, weight_1=1, weight_2=1):
+        x_1 = x[:, :26].view(x.shape[0], -1)
+        x_2 = x[:, 26:].view(x.shape[0], -1)
+        x_1 = self.teamClassifier1(x_1) * weight_1
+        x_2 = self.teamClassifier1(x_2) * weight_2
         teams = torch.concat((x_1, x_2), dim=1)
         return self.gameClassifier(teams)
 
@@ -24,6 +35,7 @@ class EMModel(nn.Module):
         for i, data in enumerate(loop):
             inputs, target = data
             inputs = inputs.float()
+            target = target.float()
 
             outputs = self(inputs)
 
@@ -43,7 +55,16 @@ class EMModel(nn.Module):
 class TeamBlock(nn.Module):
     def __init__(self):
         super().__init__()
-        self.block = nn.Sequential()
+        self.block = nn.Sequential(
+            nn.Linear(624, 312),
+            nn.ReLU(),
+            nn.Linear(312, 156),
+            nn.ReLU(),
+            nn.Linear(156, 78),
+            nn.ReLU(),
+            nn.Linear(78, 32),
+            nn.ReLU()
+        )
 
     def forward(self, x):
         return self.block(x)

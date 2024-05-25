@@ -1,9 +1,11 @@
 from torch.utils.data import Dataset
 from utils import normalize_dataset
+import numpy as np
+
 
 class EMDataset(Dataset):
     def __init__(self, dataset, normalize=False):
-        self.dataset = dataset.drop_duplicates()
+        self.dataset = dataset
         self.normalize = normalize
 
         if self.normalize:
@@ -12,7 +14,10 @@ class EMDataset(Dataset):
             )
 
     def __len__(self):
-        return len(self.dataset)
+        return int(len(self.dataset) / 52)
 
     def __getitem__(self, idx):
-        return self.dataset.iloc[idx].values
+        label = self.dataset.iloc[idx*52].values[-1]
+        data = self.dataset.drop(columns="game_won")
+        data = data.iloc[idx * 52:(idx * 52) + 52].values
+        return data, np.array([label])
