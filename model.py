@@ -27,15 +27,15 @@ class EMModel(nn.Module):
         teams = torch.concat((x_1, x_2), dim=1)
         return self.gameClassifier(teams)
 
-    def train_epoch(self, epoch_idx, dataloader, loss_fn, optimizer):
+    def train_epoch(self, epoch_idx, dataloader, loss_fn, optimizer, device):
         loop = tqdm(dataloader)
         loop.set_description(f"EM Model - Training epoch {epoch_idx}")
         mean_loss = []
 
         for i, data in enumerate(loop):
             inputs, target = data
-            inputs = inputs.float()
-            target = target.float()
+            inputs = inputs.float().to(device)
+            target = target.float().to(device)
 
             outputs = self(inputs)
 
