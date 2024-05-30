@@ -5,6 +5,8 @@ from model import EMModel
 from dataset import EMDataset
 from utils import load_dataset, preprocess_dataset
 
+DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+
 NUM_EPOCHS = 10
 
 
@@ -16,7 +18,9 @@ def train():
     data_loader = DataLoader(dataset,
                              batch_size=64,
                              shuffle=True)
-    em_model = EMModel()
+
+    em_model = EMModel().to(DEVICE)
+
     optimizer = torch.optim.Adam(em_model.parameters(), lr=1e-5)
     loss_fn = em_model.get_loss()
 
@@ -25,7 +29,8 @@ def train():
             epoch_idx=num_epoch,
             dataloader=data_loader,
             loss_fn=loss_fn,
-            optimizer=optimizer)
+            optimizer=optimizer,
+            device=DEVICE)
 
 
 if __name__ == '__main__':
