@@ -10,7 +10,7 @@ from utils import load_dataset, preprocess_dataset
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 ## Model settings ##
-NUM_EPOCHS = 10
+NUM_EPOCHS = 20
 LEARNING_RATE = 1e-5
 
 SAVE_MODEL = True
