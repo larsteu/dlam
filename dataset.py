@@ -24,4 +24,4 @@ class EMDataset(Dataset):
         label_2 = self.dataset.iloc[idx*52].values[-1]
         data = self.dataset.drop(columns=["team_1_goals", "team_2_goals"])
         data = data.iloc[idx * 52:(idx * 52) + 52].values
-        return data, np.array([label_1, label_2])
+        return np.array([data]), np.array([label_1, label_2])
