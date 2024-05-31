@@ -15,8 +15,7 @@ DATASET_PATH = ['./data/bundesliga_matches.csv',
 MAPPINGS_FILE_PATH = './data/mappings.json'
 CATEGORICAL_COLUMNS = ['home/away',
                        'player_name',
-                       'player_position',
-                       'game_won']
+                       'player_position']
 
 
 def load_dataset():
@@ -28,7 +27,7 @@ def load_dataset():
 
 
 def preprocess_dataset(dataset: pd.DataFrame):
-    dataset.drop(columns=['Unnamed: 0', 'game_result'], inplace=True)
+    dataset.drop(columns=['Unnamed: 0', 'game_won'], inplace=True)
     processed_dataset = categories_to_numerical(dataset, CATEGORICAL_COLUMNS)
     return processed_dataset
 

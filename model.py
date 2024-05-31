@@ -15,7 +15,7 @@ class EMModel(nn.Module):
             nn.ReLU(),
             nn.Linear(16, 8),
             nn.ReLU(),
-            nn.Linear(8, 1),
+            nn.Linear(8, 2),
             nn.Sigmoid()
         )
 
@@ -41,12 +41,12 @@ class EMModel(nn.Module):
 
             loss = loss_fn(outputs, target)
             loss.backward()
-            mean_loss.append(loss.item())
+            mean_loss.append(loss.to("cpu").item())
 
             optimizer.step()
             optimizer.zero_grad()
             if i % 10 == 0:
-                loop.set_postfix({"Loss": loss.item()})
+                loop.set_postfix({"Loss": loss.to("cpu").item()})
 
     def get_loss(self):
         return nn.MSELoss()
