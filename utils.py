@@ -4,37 +4,24 @@ import pandas as pd
 import json
 from tqdm import tqdm
 
-DATASET_PATH = ['./data/bundesliga_matches.csv',
-                './data/la_liga_matches.csv',
-                './data/ligue_1_matches.csv',
-                './data/premier_league_matches.csv',
-                './data/serie_a_matches.csv',
-                './data/top5_2022-23.csv',
-                './data/21-22/la_liga_matches_2021-22.csv',
-                './data/21-22/premier_league_matches_2021-22.csv']
-MAPPINGS_FILE_PATH = './data/mappings.json'
-CATEGORICAL_COLUMNS = ['home/away',
-                       'player_name',
-                       'player_position']
 
-
-def load_dataset():
-    dataset = pd.read_csv(DATASET_PATH[0])
-    for i in range(1, len(DATASET_PATH)):
-        df = pd.read_csv(DATASET_PATH[i])
+def load_dataset(dataset_path_list):
+    dataset = pd.read_csv(dataset_path_list[0])
+    for i in range(1, len(dataset_path_list)):
+        df = pd.read_csv(dataset_path_list[i])
         dataset = pd.concat([dataset, df], ignore_index=True)
     return dataset
 
 
-def preprocess_dataset(dataset: pd.DataFrame):
+def preprocess_dataset(dataset: pd.DataFrame, categorical_columns, mappings_file_path):
     dataset.drop(columns=['Unnamed: 0', 'game_won'], inplace=True)
-    processed_dataset = categories_to_numerical(dataset, CATEGORICAL_COLUMNS)
+    processed_dataset = categories_to_numerical(dataset, categorical_columns, mappings_file_path)
     return processed_dataset
 
 
-def categories_to_numerical(dataset: pd.DataFrame, cat_cols):
-    if os.path.exists(MAPPINGS_FILE_PATH):
-        with open(MAPPINGS_FILE_PATH) as json_file:
+def categories_to_numerical(dataset: pd.DataFrame, cat_cols, mappings_file_path):
+    if os.path.exists(mappings_file_path):
+        with open(mappings_file_path) as json_file:
             mappings_file = json.load(json_file)
 
         loop = tqdm(range(1))
@@ -63,7 +50,7 @@ def categories_to_numerical(dataset: pd.DataFrame, cat_cols):
 
         mappings[col] = mapping
 
-    with open(MAPPINGS_FILE_PATH, "w") as outfile:
+    with open(mappings_file_path, "w") as outfile:
         json.dump(mappings, outfile)
 
     return dataset
