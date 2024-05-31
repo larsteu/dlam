@@ -1,3 +1,4 @@
+import numpy as np
 import torch
 import torch.nn as nn
 from tqdm import tqdm
@@ -45,8 +46,7 @@ class EMModel(nn.Module):
 
             optimizer.step()
             optimizer.zero_grad()
-            if i % 10 == 0:
-                loop.set_postfix({"Loss": loss.to("cpu").item()})
+            loop.set_postfix({"Loss": np.array(mean_loss).mean()})
 
     def save_model(self, optimizer, path):
         print("=> Saving checkpoint")
