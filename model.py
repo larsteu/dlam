@@ -1,4 +1,3 @@
-import os
 import torch
 import torch.nn as nn
 from tqdm import tqdm
@@ -21,10 +20,10 @@ class EMModel(nn.Module):
         )
 
     def forward(self, x, weight_1=1, weight_2=1):
-        x_1 = x[:, :26].view(x.shape[0], -1)
-        x_2 = x[:, 26:].view(x.shape[0], -1)
+        x_1 = x[:, :, :26]
+        x_2 = x[:, :, 26:]
         x_1 = self.teamClassifier1(x_1) * weight_1
-        x_2 = self.teamClassifier1(x_2) * weight_2
+        x_2 = self.teamClassifier2(x_2) * weight_2
         teams = torch.concat((x_1, x_2), dim=1)
         return self.gameClassifier(teams)
 
@@ -72,18 +71,45 @@ class EMModel(nn.Module):
 
 
 class TeamBlock(nn.Module):
-    def __init__(self):
+    def __init__(self, features=16):
         super().__init__()
-        self.block = nn.Sequential(
-            nn.Linear(624, 312),
+        self.conv_block = nn.Sequential(
+            nn.Conv2d(1, features, kernel_size=(1, 4), stride=(1, 2)),
             nn.ReLU(),
-            nn.Linear(312, 156),
+            nn.BatchNorm2d(features),
+
+            nn.Conv2d(features, 2*features, kernel_size=(1, 4), stride=(1, 2)),
             nn.ReLU(),
-            nn.Linear(156, 78),
+            nn.BatchNorm2d(2*features),
+
+            nn.Conv2d(2*features, 4*features, kernel_size=(1, 4), stride=(1, 2)),
             nn.ReLU(),
-            nn.Linear(78, 32),
+            nn.BatchNorm2d(4*features),
+
+            nn.Conv2d(4*features, 8*features, kernel_size=(4, 1), stride=(2, 1)),
+            nn.ReLU(),
+            nn.BatchNorm2d(8*features),
+
+            nn.Conv2d(8*features, 16*features, kernel_size=(4, 1), stride=(2, 1)),
+            nn.ReLU(),
+            nn.BatchNorm2d(16*features),
+
+            nn.Conv2d(16*features, 32*features, kernel_size=(4, 1), stride=(2, 1)),
+            nn.ReLU(),
+            nn.BatchNorm2d(32*features),
+        )
+        self.fc_block = nn.Sequential(
+            nn.Linear(32*features, 16*features),
+            nn.ReLU(),
+            nn.Linear(16*features, 8*features),
+            nn.ReLU(),
+            nn.Linear(8*features, 4*features),
+            nn.ReLU(),
+            nn.Linear(4*features, 32),
             nn.ReLU()
         )
 
     def forward(self, x):
-        return self.block(x)
+        x_1 = self.conv_block(x)
+        x_2 = x_1.view(x_1.shape[0], -1)
+        return self.fc_block(x_2)
