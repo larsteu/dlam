@@ -7,8 +7,7 @@ from tqdm import tqdm
 class EMModel(nn.Module):
     def __init__(self, team_dim=32):
         super().__init__()
-        self.teamClassifier1 = TeamBlock()
-        self.teamClassifier2 = TeamBlock()
+        self.teamClassifier = TeamBlock()
         self.gameClassifier = nn.Sequential(
             nn.Linear(2*team_dim, 32),
             nn.ReLU(),
@@ -23,8 +22,8 @@ class EMModel(nn.Module):
     def forward(self, x, weight_1=1, weight_2=1):
         x_1 = x[:, :, :26]
         x_2 = x[:, :, 26:]
-        x_1 = self.teamClassifier1(x_1) * weight_1
-        x_2 = self.teamClassifier2(x_2) * weight_2
+        x_1 = self.teamClassifier(x_1) * weight_1
+        x_2 = self.teamClassifier(x_2) * weight_2
         teams = torch.concat((x_1, x_2), dim=1)
         return self.gameClassifier(teams)
 
