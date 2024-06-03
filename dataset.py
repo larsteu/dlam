@@ -8,8 +8,8 @@ class EMDataset(Dataset):
     def __init__(self, dataset: pd.DataFrame, normalize=False):
         self.dataset = dataset
         self.normalize = normalize
-        self.dataset["team_1_goals"] = self.dataset["game_result"].map(lambda x: int(x.split(sep="–")[0]))
-        self.dataset["team_2_goals"] = self.dataset["game_result"].map(lambda x: int(x.split(sep="–")[1]))
+        self.dataset["team_1_goals"] = self.dataset["game_result"].map(lambda x: int(x.split(sep="-")[0]))
+        self.dataset["team_2_goals"] = self.dataset["game_result"].map(lambda x: int(x.split(sep="-")[1]))
         self.dataset = dataset.drop(columns="game_result")
         if self.normalize:
             self.dataset = normalize_dataset(

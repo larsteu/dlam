@@ -5,12 +5,12 @@ from tqdm import tqdm
 
 
 class EMModel(nn.Module):
-    def __init__(self):
+    def __init__(self, team_dim=32):
         super().__init__()
         self.teamClassifier1 = TeamBlock()
         self.teamClassifier2 = TeamBlock()
         self.gameClassifier = nn.Sequential(
-            nn.Linear(64, 32),
+            nn.Linear(2*team_dim, 32),
             nn.ReLU(),
             nn.Linear(32, 16),
             nn.ReLU(),
@@ -71,7 +71,7 @@ class EMModel(nn.Module):
 
 
 class TeamBlock(nn.Module):
-    def __init__(self, features=16):
+    def __init__(self, features=16, output=32):
         super().__init__()
         self.conv_block = nn.Sequential(
             nn.Conv2d(1, features, kernel_size=(1, 4), stride=(1, 2)),
@@ -105,7 +105,7 @@ class TeamBlock(nn.Module):
             nn.ReLU(),
             nn.Linear(8*features, 4*features),
             nn.ReLU(),
-            nn.Linear(4*features, 32),
+            nn.Linear(4*features, output),
             nn.ReLU()
         )
 
