@@ -13,8 +13,8 @@ def load_dataset(dataset_path_list):
     return dataset
 
 
-def preprocess_dataset(dataset: pd.DataFrame, categorical_columns, mappings_file_path):
-    dataset.drop(columns=['Unnamed: 0', 'game_won'], inplace=True)
+def preprocess_dataset(dataset: pd.DataFrame, categorical_columns, mappings_file_path, columns_to_drop):
+    dataset.drop(columns=columns_to_drop, inplace=True)
     processed_dataset = categories_to_numerical(dataset, categorical_columns, mappings_file_path)
     return processed_dataset
 
@@ -29,7 +29,6 @@ def categories_to_numerical(dataset: pd.DataFrame, cat_cols, mappings_file_path)
 
         for i, _ in enumerate(loop):
             dataset = dataset.replace(mappings_file)
-            dataset = dataset.fillna(mappings_file["player_position"]["NaN"])
 
         return dataset
 
