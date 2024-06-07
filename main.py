@@ -19,7 +19,10 @@ MODEL_PATH = "data/model_checkpoint"
 
 ## Dataset properties ##
 DATASET_PATH = ['./data/bundesliga_16-23.csv',
-                './data/ligue1_16-23.csv']
+                './data/ligue1_16-23.csv',
+                './data/la_liga_16-23.csv',
+                './data/premier_league_16-23.csv',
+                './data/serie_a_16-23.csv']
 MAPPINGS_FILE_PATH = './data/mappings.json'
 CATEGORICAL_COLUMNS = ['home/away',
                        'player_name',

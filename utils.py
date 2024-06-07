@@ -5,10 +5,16 @@ import json
 from tqdm import tqdm
 
 
+def special_transforms(df):
+    df['pass_completion'] = df['pass_completion'].apply(lambda x: int(x.replace('%', '')) if type(x) is str else x)
+    return df
+
+
 def load_dataset(dataset_path_list):
     dataset = pd.read_csv(dataset_path_list[0])
     for i in range(1, len(dataset_path_list)):
         df = pd.read_csv(dataset_path_list[i])
+        df = special_transforms(df)
         dataset = pd.concat([dataset, df], ignore_index=True)
     return dataset
 
