@@ -19,8 +19,12 @@ def load_dataset(dataset_path_list):
     return dataset
 
 
-def preprocess_dataset(dataset: pd.DataFrame, categorical_columns, mappings_file_path, columns_to_drop):
+def preprocess_dataset(dataset: pd.DataFrame, categorical_columns, mappings_file_path, columns_to_drop,
+                       remove_player_names=False):
     dataset.drop(columns=columns_to_drop, inplace=True)
+    if remove_player_names:
+        dataset["player_name"] = "Player"
+
     processed_dataset = categories_to_numerical(dataset, categorical_columns, mappings_file_path)
     return processed_dataset
 
@@ -96,7 +100,10 @@ def normalize_dataset(dataset, normalization_info_file_path):
         values = {"max": max_val, "min": min_val}
         normalization_info[col] = values
 
-        dataset[col] = (dataset[col] - min_val) / (max_val - min_val)
+        if max_val-min_val == 0:
+            dataset[col] = 0
+        else:
+            dataset[col] = (dataset[col] - min_val) / (max_val - min_val)
 
     with open(normalization_info_file_path, "w") as outfile:
         json.dump(normalization_info, outfile)
