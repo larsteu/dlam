@@ -23,7 +23,7 @@ DATASET_PATH = ['./data/bundesliga_16-23.csv',
                 './data/la_liga_16-23.csv',
                 './data/premier_league_16-23.csv',
                 './data/serie_a_16-23.csv']
-MAPPINGS_FILE_PATH = './data/mappings.json'
+MAPPINGS_FILE_PATH = 'data/mappings_without_names.json'
 CATEGORICAL_COLUMNS = ['home/away',
                        'player_name',
                        'player_position']
@@ -32,7 +32,7 @@ DROP_COLUMNS = ['game_won', 'rating']
 
 def train():
     dataset_train = load_dataset(DATASET_PATH)
-    dataset_train = preprocess_dataset(dataset_train, CATEGORICAL_COLUMNS, MAPPINGS_FILE_PATH, DROP_COLUMNS)
+    dataset_train = preprocess_dataset(dataset_train, CATEGORICAL_COLUMNS, MAPPINGS_FILE_PATH, DROP_COLUMNS, remove_player_names=True)
 
     dataset = EMDataset(dataset_train, normalize=True)
     data_loader = DataLoader(dataset,
