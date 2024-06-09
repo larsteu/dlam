@@ -5,7 +5,7 @@ from tqdm import tqdm
 
 
 class EMModel(nn.Module):
-    def __init__(self, team_dim=32):
+    def __init__(self, team_dim=32, num_leagues=10):
         super().__init__()
         self.teamClassifier = TeamBlock()
         self.gameClassifier = nn.Sequential(
@@ -19,13 +19,61 @@ class EMModel(nn.Module):
             nn.Sigmoid()
         )
 
-    def forward(self, x, weight_1=1, weight_2=1):
+        self.train_with_weights = False
+
+        # We will input the league of each player. Each league will be mapped to a learnable weight and then the team embeddings will be multiplied by the average of the league weights of the players in the team
+        self.league_weights = nn.Embedding(num_leagues+1, 1) # Have one extra league for leagues not in the num_leagues
+
+    def forward(self, x):
         x_1 = x[:, :, :26]
-        x_2 = x[:, :, 26:]
-        x_1 = self.teamClassifier(x_1) * weight_1
-        x_2 = self.teamClassifier(x_2) * weight_2
+        x_2 = x[:, :, 26]
+
+        if self.train_with_weights:
+            # TODO: this is just a rough idea of how we get the weights here
+            # league info for each player could be the last entry in the input tensor.
+            leagues_team_1 = x_1[:, :, -1]
+            leagues_team_2 = x_2[:, :, -1]
+            x_1 = x_1[:, :, :-1]
+            x_2 = x_2[:, :, :-1]
+
+        x_1 = self.teamClassifier(x_1)
+        x_2 = self.teamClassifier(x_2)
+
+        if self.train_with_weights:
+            # TODO: check if this is works. Not sure, just my first idea
+            # Calculate the average league weights for each team
+            league_weights_team_1 = self.league_weights(leagues_team_1)
+            league_weights_team_2 = self.league_weights(leagues_team_2)
+            league_weights_team_1 = league_weights_team_1.mean(dim=1)
+            league_weights_team_2 = league_weights_team_2.mean(dim=1)
+
+            x_1 = x_1 * league_weights_team_1
+            x_2 = x_2 * league_weights_team_2
+            
         teams = torch.concat((x_1, x_2), dim=1)
         return self.gameClassifier(teams)
+
+    def use_weights(self, use_weights):
+        self.train_with_weights = use_weights
+
+        # Freeze parameters of the team and game classifiers
+        for param in self.teamClassifier.parameters():
+            param.requires_grad = use_weights
+        for param in self.gameClassifier.parameters():
+            param.requires_grad = use_weights
+
+    def train_epoch_to_determine_weights(self, epoch_idx, dataloader, loss_fn, optimizer, device):
+        # 1. Freeze parameters of the team and game classifiers
+        self.use_weights(True)
+
+        # 2. Train the model to determine the weights
+
+        # Loop through the dataloader
+        # For each batch, append the leagues to the input tensor
+        # Everything else should likely be the same as train_epoch
+
+        # 3. Set back to normal mode
+        self.use_weights(False)
 
     def train_epoch(self, epoch_idx, dataloader, loss_fn, optimizer, device):
         loop = tqdm(dataloader)
