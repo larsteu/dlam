@@ -95,16 +95,19 @@ if __name__ == '__main__':
     # get the console arguments which are [api-key, leagueID, season, filename]
     api_key = sys.argv[1]
     league_id = sys.argv[2]
-    season = sys.argv[3]
+    seasons = sys.argv[3]
     filename = sys.argv[4]
     match_nr = 0
+
+    start_season = seasons.split("-")[0]
+    end_season = seasons.split("-")[1]
 
     player_data = []
 
     remaining_requests_per_min = 60
     remaining_requests_day = 1000
 
-    for i in range(int(season), 2023):
+    for i in range(int(start_season), int(end_season) + 1):
         current_league_url = "https://v3.football.api-sports.io/fixtures?league=" + league_id + "&season=" + str(i)
 
         headers = {
