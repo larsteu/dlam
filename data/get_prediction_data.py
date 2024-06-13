@@ -123,7 +123,7 @@ def get_player_data(player, season, team):
         player_data['won_duels'] += game['duels']['won'] / total_number_played_games
         player_data['attempted_dribbles'] += game['dribbles']['attempts'] / total_number_played_games
         player_data['successful_dribbles'] += game['dribbles']['success'] / total_number_played_games
-        player_data['cards'] += game['cards']['yellow'] + game['cards']['red'] / total_number_played_games
+        player_data['cards'] += (game['cards']['yellow'] + game['cards']['red']) / total_number_played_games
 
         # not optimal, but considering mostly competitions with low participation have a null value, this is fine
         if game['games']['rating'] != 0:
