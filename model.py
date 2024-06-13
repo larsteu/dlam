@@ -26,7 +26,7 @@ class EMModel(nn.Module):
 
     def forward(self, x):
         x_1 = x[:, :, :26]
-        x_2 = x[:, :, 26]
+        x_2 = x[:, :, 26:]
 
         if self.train_with_weights:
             # TODO: this is just a rough idea of how we get the weights here
