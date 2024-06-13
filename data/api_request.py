@@ -35,7 +35,7 @@ def get_player_data(player, match_nr, home_away, game_state, won_loss):
     won_duels = player["statistics"][0]["duels"]["won"]
     attempted_dribbles = player["statistics"][0]["dribbles"]["attempts"]
     successful_dribbles = player["statistics"][0]["dribbles"]["success"]
-    cards = player["statistics"][0]["cards"]["yellow"] + player["statistics"][0]["cards"]["red"]
+    cards = (player["statistics"][0]["cards"]["yellow"] + player["statistics"][0]["cards"]["red"])
 
     # autofill all the missing values with 0
     if not attempted_shots:
