@@ -5,7 +5,9 @@ import numpy as np
 
 
 class EMDataset(Dataset):
-    def __init__(self, dataset: pd.DataFrame, normalize=False):
+    def __init__(
+        self, dataset: pd.DataFrame, normalize=False, use_existing_normalisation=False
+    ):
         self.dataset = dataset
         self.normalize = normalize
         self.dataset["team_1_goals"] = self.dataset["game_result"].map(
@@ -19,6 +21,7 @@ class EMDataset(Dataset):
             self.dataset = normalize_dataset(
                 self.dataset,
                 "data/normalization_info.json",
+                use_existing_normalisation=use_existing_normalisation,
             )
 
     def __len__(self):

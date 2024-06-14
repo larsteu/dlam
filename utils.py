@@ -13,7 +13,7 @@ def special_transforms(df):
 
 
 def load_dataset(dataset_path_list):
-    dataset = pd.read_csv(dataset_path_list[0])
+    dataset = special_transforms(pd.read_csv(dataset_path_list[0]))
     for i in range(1, len(dataset_path_list)):
         df = pd.read_csv(dataset_path_list[i])
         df = special_transforms(df)
@@ -100,10 +100,23 @@ def denormalize_dataset(dataset, normalization_info_file):
     return dataset
 
 
-def normalize_dataset(dataset, normalization_info_file_path):
+def normalize_dataset(
+    dataset, normalization_info_file_path, use_existing_normalisation=False
+):
     normalization_info = {}
     loop = tqdm(dataset.columns)
     loop.set_description(f"Normalizing data")
+
+    if use_existing_normalisation:
+        for i, col in enumerate(loop):
+            with open(normalization_info_file_path) as json_file:
+                normalization_info = json.load(json_file)
+            max_val = normalization_info[col]["max"]
+            min_val = normalization_info[col]["min"]
+
+            dataset[col] = (dataset[col] - min_val) / (max_val - min_val)
+        return dataset
+
     for i, col in enumerate(loop):
         max_val = int(dataset[col].max())
         min_val = int(dataset[col].min())

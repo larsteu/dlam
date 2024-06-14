@@ -25,8 +25,9 @@ TRAIN_DATASET_PATH = [
     "./data/premier_league_16-23.csv",
     "./data/serie_a_16-23.csv",
 ]
-TEST_DATASET_PATH = ["./data/bundesliga_16-23.csv"]
-MAPPINGS_FILE_PATH = "data/mappings_without_names.json"
+TEST_DATASET_PATH = ["./data/evaluation/em12-20.csv"]
+MAPPINGS_FILE_PATH_TRAIN = "data/mappings_without_names_train.json"
+MAPPINGS_FILE_PATH_TEST = "data/mappings_without_names_test.json"
 CATEGORICAL_COLUMNS = ["home/away", "player_name", "player_position"]
 DROP_COLUMNS = ["game_won", "rating"]
 
@@ -36,7 +37,7 @@ def train():
     dataset_train = preprocess_dataset(
         dataset_train,
         CATEGORICAL_COLUMNS,
-        MAPPINGS_FILE_PATH,
+        MAPPINGS_FILE_PATH_TRAIN,
         DROP_COLUMNS,
         remove_player_names=True,
     )
@@ -48,12 +49,14 @@ def train():
     dataset_test = preprocess_dataset(
         dataset_test,
         CATEGORICAL_COLUMNS,
-        MAPPINGS_FILE_PATH,
+        MAPPINGS_FILE_PATH_TEST,
         DROP_COLUMNS,
         remove_player_names=True,
     )
 
-    dataset_test = EMDataset(dataset_test, normalize=True)
+    dataset_test = EMDataset(
+        dataset_test, normalize=True, use_existing_normalisation=True
+    )
     data_loader_test = DataLoader(dataset_test, batch_size=64, shuffle=True)
 
     em_model = EMModel().to(DEVICE)
