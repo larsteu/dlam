@@ -7,10 +7,7 @@ import time
 import api_request as api
 
 base_url = "https://v3.football.api-sports.io/"
-headers = {
-    'x-rapidapi-key': "",
-    'x-rapidapi-host': 'v3.football.api-sports.io'
-}
+headers = {"x-rapidapi-key": "", "x-rapidapi-host": "v3.football.api-sports.io"}
 
 
 def non_null_dict(items):
@@ -49,12 +46,12 @@ def get_teams(league, season):
 
     # iterate the response and get the team ids and names
     for curr_team in response:
-        curr_teams.append({
-            "team_id": curr_team["team"]["id"],
-            "team_name": curr_team["team"]["name"]
-        })
+        curr_teams.append(
+            {"team_id": curr_team["team"]["id"], "team_name": curr_team["team"]["name"]}
+        )
 
     return curr_teams
+
 
 def get_players(team, season, league):
     url = base_url + f"players?league={league}&season={season}&team={team}"
@@ -64,10 +61,12 @@ def get_players(team, season, league):
 
     # iterate the response and get the player ids and names
     for player in response:
-        players.append({
-            "player_id": player["player"]["id"],
-            "player_name": player["player"]["name"]
-        })
+        players.append(
+            {
+                "player_id": player["player"]["id"],
+                "player_name": player["player"]["name"],
+            }
+        )
 
     return players
 
@@ -78,62 +77,93 @@ def get_player_data(player, season, team):
     data = get_page(url)[0]
 
     # initialize the player data with 0 since it has to be collected from multiple json elements
-    player_data = {'player_name': data['player']['name'], 'player_position': data['statistics'][0]['games']['position'], 'minutes_played': 0,
-                                        'attempted_shots': 0, 'shots_on_goal': 0,
-                                        'goals' : 0, 'assists': 0, 'total_passes': 0,
-                                        'key_passes': 0, 'pass_completion': 0,
-                                        'saves': 0, 'tackles': 0, 'blocks': 0,
-                                        'interceptions': 0, 'conceded_goals': 0,
-                                        'total_duels': 0, 'won_duels': 0,
-                                        'attempted_dribbles': 0, 'successful_dribbles': 0,
-                                        'cards': 0, 'rating': 0}
+    player_data = {
+        "player_name": data["player"]["name"],
+        "player_position": data["statistics"][0]["games"]["position"],
+        "minutes_played": 0,
+        "attempted_shots": 0,
+        "shots_on_goal": 0,
+        "goals": 0,
+        "assists": 0,
+        "total_passes": 0,
+        "key_passes": 0,
+        "pass_completion": 0,
+        "saves": 0,
+        "tackles": 0,
+        "blocks": 0,
+        "interceptions": 0,
+        "conceded_goals": 0,
+        "total_duels": 0,
+        "won_duels": 0,
+        "attempted_dribbles": 0,
+        "successful_dribbles": 0,
+        "cards": 0,
+        "rating": 0,
+    }
 
     # get the total number of games played across all competitions
     total_number_played_games = 0
-    for game in data['statistics']:
-        total_number_played_games += game['games']['appearences']
+    for game in data["statistics"]:
+        total_number_played_games += game["games"]["appearences"]
 
     if total_number_played_games == 0:
         return player_data
 
     # iterate through the competitions and sum up the data, for relative values like the rating the competition is weighted
-    for game in data['statistics']:
-        weight = game['games']['appearences'] / total_number_played_games
+    for game in data["statistics"]:
+        weight = game["games"]["appearences"] / total_number_played_games
 
-        player_data['minutes_played'] += game['games']['minutes'] / total_number_played_games
-        player_data['attempted_shots'] += game['shots']['total'] / total_number_played_games
-        player_data['shots_on_goal'] += game['shots']['on'] / total_number_played_games
-        player_data['goals'] += game['goals']['total'] / total_number_played_games
-        player_data['assists'] += game['goals']['assists'] / total_number_played_games
-        player_data['total_passes'] += game['passes']['total'] / total_number_played_games
-        player_data['key_passes'] += game['passes']['key'] / total_number_played_games
+        player_data["minutes_played"] += (
+            game["games"]["minutes"] / total_number_played_games
+        )
+        player_data["attempted_shots"] += (
+            game["shots"]["total"] / total_number_played_games
+        )
+        player_data["shots_on_goal"] += game["shots"]["on"] / total_number_played_games
+        player_data["goals"] += game["goals"]["total"] / total_number_played_games
+        player_data["assists"] += game["goals"]["assists"] / total_number_played_games
+        player_data["total_passes"] += (
+            game["passes"]["total"] / total_number_played_games
+        )
+        player_data["key_passes"] += game["passes"]["key"] / total_number_played_games
 
         # possible edge case where the accuracy actually is 0 over a whole season, but that's gotta be incredibly rare
-        if game['passes']['accuracy'] != 0:
-            player_data['pass_completion'] += float(game['passes']['accuracy']) * weight
+        if game["passes"]["accuracy"] != 0:
+            player_data["pass_completion"] += float(game["passes"]["accuracy"]) * weight
         else:
-            player_data['pass_completion'] += player_data['pass_completion'] * weight
+            player_data["pass_completion"] += player_data["pass_completion"] * weight
 
-        player_data['saves'] += game['goals']['saves'] / total_number_played_games
-        player_data['tackles'] += game['tackles']['total'] / total_number_played_games
-        player_data['blocks'] += game['tackles']['blocks'] / total_number_played_games
-        player_data['interceptions'] += game['tackles']['interceptions'] / total_number_played_games
-        player_data['conceded_goals'] += game['goals']['conceded'] / total_number_played_games
-        player_data['total_duels'] += game['duels']['total'] / total_number_played_games
-        player_data['won_duels'] += game['duels']['won'] / total_number_played_games
-        player_data['attempted_dribbles'] += game['dribbles']['attempts'] / total_number_played_games
-        player_data['successful_dribbles'] += game['dribbles']['success'] / total_number_played_games
-        player_data['cards'] += (game['cards']['yellow'] + game['cards']['red']) / total_number_played_games
+        player_data["saves"] += game["goals"]["saves"] / total_number_played_games
+        player_data["tackles"] += game["tackles"]["total"] / total_number_played_games
+        player_data["blocks"] += game["tackles"]["blocks"] / total_number_played_games
+        player_data["interceptions"] += (
+            game["tackles"]["interceptions"] / total_number_played_games
+        )
+        player_data["conceded_goals"] += (
+            game["goals"]["conceded"] / total_number_played_games
+        )
+        player_data["total_duels"] += game["duels"]["total"] / total_number_played_games
+        player_data["won_duels"] += game["duels"]["won"] / total_number_played_games
+        player_data["attempted_dribbles"] += (
+            game["dribbles"]["attempts"] / total_number_played_games
+        )
+        player_data["successful_dribbles"] += (
+            game["dribbles"]["success"] / total_number_played_games
+        )
+        player_data["cards"] += (
+            game["cards"]["yellow"] + game["cards"]["red"]
+        ) / total_number_played_games
 
         # not optimal, but considering mostly competitions with low participation have a null value, this is fine
-        if game['games']['rating'] != 0:
-            player_data['rating'] += float(game['games']['rating']) * weight
+        if game["games"]["rating"] != 0:
+            player_data["rating"] += float(game["games"]["rating"]) * weight
         else:
-            player_data['rating'] += player_data['rating'] * weight
+            player_data["rating"] += player_data["rating"] * weight
 
     return player_data
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     if len(sys.argv) != 4:
         print("missing arguments")
         sys.exit(1)
@@ -143,14 +173,13 @@ if __name__ == '__main__':
     season = sys.argv[3]
     folder = f"{league}_{season}"
 
-    headers['x-rapidapi-key'] = api_key
+    headers["x-rapidapi-key"] = api_key
 
     # Create the folder
     os.makedirs(folder, exist_ok=True)
 
     # get the list of participating teams
     teams = get_teams(league, season)
-
 
     # loop through the teams and get their players
     for team in teams:
