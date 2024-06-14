@@ -114,7 +114,10 @@ def normalize_dataset(
             max_val = normalization_info[col]["max"]
             min_val = normalization_info[col]["min"]
 
-            dataset[col] = (dataset[col] - min_val) / (max_val - min_val)
+            if max_val - min_val == 0:
+                dataset[col] = 0
+            else:
+                dataset[col] = (dataset[col] - min_val) / (max_val - min_val)
         return dataset
 
     for i, col in enumerate(loop):
