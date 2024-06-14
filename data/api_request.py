@@ -35,7 +35,10 @@ def get_player_data(player, match_nr, home_away, game_state, won_loss):
     won_duels = player["statistics"][0]["duels"]["won"]
     attempted_dribbles = player["statistics"][0]["dribbles"]["attempts"]
     successful_dribbles = player["statistics"][0]["dribbles"]["success"]
-    cards = (player["statistics"][0]["cards"]["yellow"] + player["statistics"][0]["cards"]["red"])
+    cards = (
+        player["statistics"][0]["cards"]["yellow"]
+        + player["statistics"][0]["cards"]["red"]
+    )
 
     # autofill all the missing values with 0
     if not attempted_shots:
@@ -77,19 +80,36 @@ def get_player_data(player, match_nr, home_away, game_state, won_loss):
     if not minutes_played:
         minutes_played = 0
 
-    return {'match_nr': match_nr, 'home/away': home_away, 'player_name': player_name,
-                                        'player_position': player_position, 'minutes_played': minutes_played,
-                                        'attempted_shots': attempted_shots, 'shots_on_goal': shots_on_goal,
-                                        'goals' : goals, 'assists': assists, 'totat_passes': totat_passes,
-                                        'key_passes': key_passes, 'pass_completion': pass_completion,
-                                        'saves': saves, 'tackles': tackles, 'blocks': blocks,
-                                        'interceptions': interceptions, 'conceded_goals': conceded_goals,
-                                        'total_duels': total_duels, 'won_duels': won_duels,
-                                        'attempted_dribbles': attempted_dribbles, 'successful_dribbles': successful_dribbles,
-                                        'cards': cards, 'game_won': won_loss, 'game_result': game_state, 'rating': rating}
+    return {
+        "match_nr": match_nr,
+        "home/away": home_away,
+        "player_name": player_name,
+        "player_position": player_position,
+        "minutes_played": minutes_played,
+        "attempted_shots": attempted_shots,
+        "shots_on_goal": shots_on_goal,
+        "goals": goals,
+        "assists": assists,
+        "totat_passes": totat_passes,
+        "key_passes": key_passes,
+        "pass_completion": pass_completion,
+        "saves": saves,
+        "tackles": tackles,
+        "blocks": blocks,
+        "interceptions": interceptions,
+        "conceded_goals": conceded_goals,
+        "total_duels": total_duels,
+        "won_duels": won_duels,
+        "attempted_dribbles": attempted_dribbles,
+        "successful_dribbles": successful_dribbles,
+        "cards": cards,
+        "game_won": won_loss,
+        "game_result": game_state,
+        "rating": rating,
+    }
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # format: https://v3.football.api-sports.io/fixtures?league=78&season=2010
 
     # get the console arguments which are [api-key, leagueID, season, filename]
@@ -108,11 +128,16 @@ if __name__ == '__main__':
     remaining_requests_day = 1000
 
     for i in range(int(start_season), int(end_season) + 1):
-        current_league_url = "https://v3.football.api-sports.io/fixtures?league=" + league_id + "&season=" + str(i)
+        current_league_url = (
+            "https://v3.football.api-sports.io/fixtures?league="
+            + league_id
+            + "&season="
+            + str(i)
+        )
 
         headers = {
-          'x-rapidapi-key': api_key,
-          'x-rapidapi-host': 'v3.football.api-sports.io'
+            "x-rapidapi-key": api_key,
+            "x-rapidapi-host": "v3.football.api-sports.io",
         }
 
         # check if the remaining_requests_per_min is 0 (if yes, wait for 1 minute)
@@ -151,7 +176,9 @@ if __name__ == '__main__':
             fixture = match["fixture"]
             fixture_id = fixture["id"]
             # save the match state
-            match_state = str(match["goals"]["home"]) + "-" + str(match["goals"]["away"])
+            match_state = (
+                str(match["goals"]["home"]) + "-" + str(match["goals"]["away"])
+            )
             game_state_home = "won" if match["teams"]["home"]["winner"] else "lost"
             game_state_away = "won" if match["teams"]["away"]["winner"] else "lost"
 
@@ -159,9 +186,11 @@ if __name__ == '__main__':
                 game_state_home = "draw"
                 game_state_away = "draw"
 
-
             try:
-                fixture_url = "https://v3.football.api-sports.io/fixtures/players?fixture=" + str(fixture_id)
+                fixture_url = (
+                    "https://v3.football.api-sports.io/fixtures/players?fixture="
+                    + str(fixture_id)
+                )
                 response = requests.request("GET", fixture_url, headers=headers)
 
                 # check if the response text is empty (if yes, skip the current match)
@@ -175,7 +204,9 @@ if __name__ == '__main__':
                 number_of_players = 0
                 # get the home team players
                 for player in home_team["players"]:
-                    player_stats = get_player_data(player, match_nr, "home", match_state, game_state_home)
+                    player_stats = get_player_data(
+                        player, match_nr, "home", match_state, game_state_home
+                    )
 
                     # skip all players that have 0 minutes played
                     if player_stats["minutes_played"] == 0:
@@ -186,28 +217,51 @@ if __name__ == '__main__':
 
                 # fill up with puffer players until 26 players are reached
                 while number_of_players < 26:
-                    player_data.append({'match_nr': match_nr, 'home/away': "home", 'player_name': "puffer_player",
-                                        'player_position': "puffer", 'minutes_played': 0,
-                                        'attempted_shots': 0, 'shots_on_goal': 0,
-                                        'goals': 0, 'assists': 0, 'totat_passes': 0,
-                                        'key_passes': 0, 'pass_completion': 0,
-                                        'saves': 0, 'tackles': 0, 'blocks': 0,
-                                        'interceptions': 0, 'conceded_goals': 0,
-                                        'total_duels': 0, 'won_duels': 0,
-                                        'attempted_dribbles': 0, 'successful_dribbles': 0,
-                                        'cards': 0, 'game_won': game_state_home, 'game_result': match_state, 'rating': 0})
+                    player_data.append(
+                        {
+                            "match_nr": match_nr,
+                            "home/away": "home",
+                            "player_name": "puffer_player",
+                            "player_position": "puffer",
+                            "minutes_played": 0,
+                            "attempted_shots": 0,
+                            "shots_on_goal": 0,
+                            "goals": 0,
+                            "assists": 0,
+                            "totat_passes": 0,
+                            "key_passes": 0,
+                            "pass_completion": 0,
+                            "saves": 0,
+                            "tackles": 0,
+                            "blocks": 0,
+                            "interceptions": 0,
+                            "conceded_goals": 0,
+                            "total_duels": 0,
+                            "won_duels": 0,
+                            "attempted_dribbles": 0,
+                            "successful_dribbles": 0,
+                            "cards": 0,
+                            "game_won": game_state_home,
+                            "game_result": match_state,
+                            "rating": 0,
+                        }
+                    )
                     number_of_players += 1
 
                 # if for some miraculous reason there are more than 26 players, remove the last ones (this should literally never happen, since most leagues can only switch 3 players per game right?)
                 while number_of_players > 26:
-                    print("Too many players in home team, removing last player. Somehow\n")
+                    print(
+                        "Too many players in home team, removing last player. Somehow\n"
+                    )
                     player_data.pop()
 
                 number_of_players = 0
 
                 # get the away team players
                 for player in away_team["players"]:
-                    player_stats = get_player_data(player, match_nr, "away", match_state, game_state_away)
+                    player_stats = get_player_data(
+                        player, match_nr, "away", match_state, game_state_away
+                    )
 
                     # skip all players that have 0 minutes played
                     if player_stats["minutes_played"] == 0:
@@ -218,21 +272,42 @@ if __name__ == '__main__':
 
                 # fill up with puffer players until 26 players are reached
                 while number_of_players < 26:
-                    player_data.append({'match_nr': match_nr, 'home/away': "away", 'player_name': "puffer_player",
-                                        'player_position': "puffer", 'minutes_played': 0,
-                                        'attempted_shots': 0, 'shots_on_goal': 0,
-                                        'goals': 0, 'assists': 0, 'totat_passes': 0,
-                                        'key_passes': 0, 'pass_completion': 0,
-                                        'saves': 0, 'tackles': 0, 'blocks': 0,
-                                        'interceptions': 0, 'conceded_goals': 0,
-                                        'total_duels': 0, 'won_duels': 0,
-                                        'attempted_dribbles': 0, 'successful_dribbles': 0,
-                                        'cards': 0, 'game_won': game_state_away, 'game_result': match_state, 'rating': 0})
+                    player_data.append(
+                        {
+                            "match_nr": match_nr,
+                            "home/away": "away",
+                            "player_name": "puffer_player",
+                            "player_position": "puffer",
+                            "minutes_played": 0,
+                            "attempted_shots": 0,
+                            "shots_on_goal": 0,
+                            "goals": 0,
+                            "assists": 0,
+                            "totat_passes": 0,
+                            "key_passes": 0,
+                            "pass_completion": 0,
+                            "saves": 0,
+                            "tackles": 0,
+                            "blocks": 0,
+                            "interceptions": 0,
+                            "conceded_goals": 0,
+                            "total_duels": 0,
+                            "won_duels": 0,
+                            "attempted_dribbles": 0,
+                            "successful_dribbles": 0,
+                            "cards": 0,
+                            "game_won": game_state_away,
+                            "game_result": match_state,
+                            "rating": 0,
+                        }
+                    )
                     number_of_players += 1
 
                 # if for some miraculous reason there are more than 26 players, remove the last ones (this should literally never happen, since most leagues can only switch 3 players per game right?)
                 while number_of_players > 26:
-                    print("Too many players in home team, removing last player. Somehow\n")
+                    print(
+                        "Too many players in home team, removing last player. Somehow\n"
+                    )
                     player_data.pop()
 
                 match_nr += 1

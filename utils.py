@@ -6,7 +6,9 @@ from tqdm import tqdm
 
 
 def special_transforms(df):
-    df['pass_completion'] = df['pass_completion'].apply(lambda x: int(x.replace('%', '')) if type(x) is str else x)
+    df["pass_completion"] = df["pass_completion"].apply(
+        lambda x: int(x.replace("%", "")) if type(x) is str else x
+    )
     return df
 
 
@@ -19,13 +21,20 @@ def load_dataset(dataset_path_list):
     return dataset
 
 
-def preprocess_dataset(dataset: pd.DataFrame, categorical_columns, mappings_file_path, columns_to_drop,
-                       remove_player_names=False):
+def preprocess_dataset(
+    dataset: pd.DataFrame,
+    categorical_columns,
+    mappings_file_path,
+    columns_to_drop,
+    remove_player_names=False,
+):
     dataset.drop(columns=columns_to_drop, inplace=True)
     if remove_player_names:
         dataset["player_name"] = "Player"
 
-    processed_dataset = categories_to_numerical(dataset, categorical_columns, mappings_file_path)
+    processed_dataset = categories_to_numerical(
+        dataset, categorical_columns, mappings_file_path
+    )
     return processed_dataset
 
 
@@ -35,7 +44,9 @@ def categories_to_numerical(dataset: pd.DataFrame, cat_cols, mappings_file_path)
             mappings_file = json.load(json_file)
 
         loop = tqdm(range(1))
-        loop.set_description(f"Converting categorical values to numerical (using existing mapping file)")
+        loop.set_description(
+            f"Converting categorical values to numerical (using existing mapping file)"
+        )
 
         for i, _ in enumerate(loop):
             dataset = dataset.replace(mappings_file)
@@ -100,7 +111,7 @@ def normalize_dataset(dataset, normalization_info_file_path):
         values = {"max": max_val, "min": min_val}
         normalization_info[col] = values
 
-        if max_val-min_val == 0:
+        if max_val - min_val == 0:
             dataset[col] = 0
         else:
             dataset[col] = (dataset[col] - min_val) / (max_val - min_val)
