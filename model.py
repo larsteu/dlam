@@ -123,6 +123,7 @@ class EMModel(nn.Module):
             loop.set_postfix({"Loss": np.array(mean_loss).mean()})
 
         self.train(True)
+        return np.array(mean_loss).mean()
 
     def save_model(self, optimizer, path):
         print("=> Saving checkpoint")
