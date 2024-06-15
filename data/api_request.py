@@ -108,15 +108,33 @@ def get_player_data(player, match_nr, home_away, game_state, won_loss):
         "rating": rating,
     }
 
+def get_league(player_data, original_league_id, season, headers):
+
+    league = player_data["statistics"][0]["league"]["name"]
+    curr_highest = 0
+    # iterate over the leagues and get the one with the highest amount of appearances
+    for league_data in player_data["statistics"]:
+        # skip the original league id
+        if league_data["league"]["id"] == original_league_id:
+            continue
+
+        if league_data["games"]["appearences"] > curr_highest:
+            curr_highest = league_data["games"]["appearences"]
+            league = league_data["league"]["name"]
+
+    return league
 
 if __name__ == "__main__":
     # format: https://v3.football.api-sports.io/fixtures?league=78&season=2010
 
+    include_league = False
     # get the console arguments which are [api-key, leagueID, season, filename]
     api_key = sys.argv[1]
     league_id = sys.argv[2]
     seasons = sys.argv[3]
     filename = sys.argv[4]
+    if sys.argv[5]:
+        include_league = sys.argv[5]
     match_nr = 0
 
     start_season = seasons.split("-")[0]
@@ -126,6 +144,9 @@ if __name__ == "__main__":
 
     remaining_requests_per_min = 60
     remaining_requests_day = 1000
+
+    # create a dictionary containing the current league of all players per season
+    league_dict: dict = {}
 
     for i in range(int(start_season), int(end_season) + 1):
         current_league_url = (
@@ -182,7 +203,7 @@ if __name__ == "__main__":
             game_state_home = "won" if match["teams"]["home"]["winner"] else "lost"
             game_state_away = "won" if match["teams"]["away"]["winner"] else "lost"
 
-            if match["teams"]["away"]["winner"] is None:
+            if match["teams"]["away"]["winner"] is None or match["goals"]["home"] is match["goals"]["away"]:
                 game_state_home = "draw"
                 game_state_away = "draw"
 
@@ -201,6 +222,7 @@ if __name__ == "__main__":
                 home_team = json.loads(response.text)["response"][0]
                 away_team = json.loads(response.text)["response"][1]
 
+                league = ""
                 number_of_players = 0
                 # get the home team players
                 for player in home_team["players"]:
@@ -211,6 +233,40 @@ if __name__ == "__main__":
                     # skip all players that have 0 minutes played
                     if player_stats["minutes_played"] == 0:
                         continue
+
+                    if include_league:
+                        if (str(player["player"]["id"]) + str(i)) not in league_dict:
+                            # get the player id
+                            player_id = player["player"]["id"]
+
+                            # check if the remaining_requests_per_min is 0 (if yes, wait for 1 minute)
+                            if remaining_requests_per_min == 0:
+                                time.sleep(60)
+
+                            # check if the remaining_requests_day is 0 (if yes, save the current_data and stop)
+                            if remaining_requests_day == 0:
+                                write_to_csv(player_data, "temp.csv")
+                                break
+
+                            # send a request to the player endpoint with the current season
+                            player_url = "https://v3.football.api-sports.io/players?id=" + str(
+                                player_id) + "&season=" + str(i)
+                            r = requests.request("GET", player_url, headers=headers)
+                            curr_data = json.loads(r.text)["response"][0]
+
+                            remaining_requests_day = r.headers["x-ratelimit-requests-remaining"]
+                            remaining_requests_per_min = r.headers["X-RateLimit-Remaining"]
+
+                            player_stats["season"] = i
+                            league = get_league(curr_data, league_id, i, headers)
+                            player_stats["league"] = league
+                            print("The current player with the id " + str(player_id) + " is in the league " + league + "(approach 1)\n")
+                            league_dict[(str(player["player"]["id"]) + str(i))] = league
+                        else:
+                            league = league_dict[(str(player["player"]["id"]) + str(i))]
+                            print("The current player with the id " + str(player["player"]["id"]) + " is in the league " + league + "(approach 2)\n")
+                            player_stats["league"] = league
+                            player_stats["season"] = i
 
                     player_data.append(player_stats)
                     number_of_players += 1
@@ -246,6 +302,11 @@ if __name__ == "__main__":
                             "rating": 0,
                         }
                     )
+
+                    if include_league:
+                        player_data[-1]["league"] = "puffer"
+                        player_data[-1]["season"] = i
+
                     number_of_players += 1
 
                 # if for some miraculous reason there are more than 26 players, remove the last ones (this should literally never happen, since most leagues can only switch 3 players per game right?)
@@ -266,6 +327,41 @@ if __name__ == "__main__":
                     # skip all players that have 0 minutes played
                     if player_stats["minutes_played"] == 0:
                         continue
+
+                    if include_league:
+                        if (str(player["player"]["id"]) + str(i)) not in league_dict:
+                            # get the player id
+                            player_id = player["player"]["id"]
+
+                            # check if the remaining_requests_per_min is 0 (if yes, wait for 1 minute)
+                            if remaining_requests_per_min == 0:
+                                time.sleep(60)
+
+                            # check if the remaining_requests_day is 0 (if yes, save the current_data and stop)
+                            if remaining_requests_day == 0:
+                                write_to_csv(player_data, "temp.csv")
+                                break
+
+                            # send a request to the player endpoint with the current season
+                            player_url = "https://v3.football.api-sports.io/players?id=" + str(
+                                player_id) + "&season=" + str(i)
+                            r = requests.request("GET", player_url, headers=headers)
+
+                            remaining_requests_day = r.headers["x-ratelimit-requests-remaining"]
+                            remaining_requests_per_min = r.headers["X-RateLimit-Remaining"]
+
+                            curr_data = json.loads(r.text)["response"][0]
+
+                            player_stats["season"] = i
+                            league = get_league(curr_data, league_id, i, headers)
+                            player_stats["league"] = league
+                            league_dict[(str(player["player"]["id"]) + str(i))] = league
+                            print("The current player with the id " + str(player_id) + " is in the league " + league + "(approach 1)\n")
+                        else:
+                            league = league_dict[(str(player["player"]["id"]) + str(i))]
+                            print("The current player with the id " + str(player["player"]["id"]) + " is in the league " + league + "(approach 2)\n")
+                            player_stats["league"] = league
+                            player_stats["season"] = i
 
                     player_data.append(player_stats)
                     number_of_players += 1
@@ -301,6 +397,11 @@ if __name__ == "__main__":
                             "rating": 0,
                         }
                     )
+
+                    if include_league:
+                        player_data[-1]["league"] = "puffer"
+                        player_data[-1]["season"] = i
+
                     number_of_players += 1
 
                 # if for some miraculous reason there are more than 26 players, remove the last ones (this should literally never happen, since most leagues can only switch 3 players per game right?)
