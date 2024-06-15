@@ -115,7 +115,7 @@ class EMModel(nn.Module):
             inputs = inputs.float().to(device)
             target = target.float().to(device)
 
-            with torch.no_grad:
+            with torch.no_grad():
                 outputs = self(inputs)
                 loss = loss_fn(outputs, target)
             mean_loss.append(loss.to("cpu").item())
