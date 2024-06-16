@@ -63,8 +63,11 @@ def train():
 
     optimizer = torch.optim.Adam(em_model.parameters(), lr=LEARNING_RATE)
 
+    best_eval_loss = 0
+
     if LOAD_MODEL and os.path.exists(MODEL_PATH):
         em_model.load_model(optimizer, LEARNING_RATE, MODEL_PATH)
+        best_eval_loss = em_model.eval_model(dataloader=data_loader_test, device=DEVICE)
 
     for num_epoch in range(NUM_EPOCHS):
         em_model.train_epoch(
@@ -74,10 +77,11 @@ def train():
             device=DEVICE,
         )
 
-        em_model.eval_model(dataloader=data_loader_test, device=DEVICE)
+        curr_eval_loss = em_model.eval_model(dataloader=data_loader_test, device=DEVICE)
 
-        if SAVE_MODEL:
+        if SAVE_MODEL and best_eval_loss >= curr_eval_loss:
             em_model.save_model(optimizer, MODEL_PATH)
+            best_eval_loss = curr_eval_loss
 
 
 if __name__ == "__main__":
