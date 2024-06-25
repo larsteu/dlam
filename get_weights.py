@@ -68,6 +68,7 @@ leagues = {
     "Championship": 7,
     "Super League": 8,
     "Czech Liga": 9,
+    "Fortuna Liga": 9,
     "Jupiler Pro League": 10,
     "Pro League": 10,
     "1. Division": 11,
