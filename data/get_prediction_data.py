@@ -37,6 +37,21 @@ def get_page(url):
 
     return data
 
+def get_league(player_data, original_league_id):
+
+    league = player_data["statistics"][0]["league"]["name"]
+    curr_highest = 0
+    # iterate over the leagues and get the one with the highest amount of appearances
+    for league_data in player_data["statistics"]:
+        # skip the original league id
+        if league_data["league"]["id"] == original_league_id:
+            continue
+
+        if league_data["games"]["appearences"] > curr_highest:
+            curr_highest = league_data["games"]["appearences"]
+            league = league_data["league"]["name"]
+
+    return league
 
 def get_teams(league, season):
     url = base_url + f"teams?league={league}&season={season}"
@@ -71,7 +86,7 @@ def get_players(team, season, league):
     return players
 
 
-def get_player_data(player, season, team):
+def get_player_data(player, season, team, league_id):
     url = base_url + f"players?id={player}&season={season}"
 
     data = get_page(url)[0]
@@ -99,6 +114,7 @@ def get_player_data(player, season, team):
         "successful_dribbles": 0,
         "cards": 0,
         "rating": 0,
+        "league": get_league(data, league_id),
     }
 
     # get the total number of games played across all competitions
@@ -191,12 +207,19 @@ if __name__ == "__main__":
         # get the players of the team
         players = get_players(team_id, season, league)
 
+        # set the season -1 because the api uses the starting year, not the ending (i.e. for 23/24 it uses 23)
+        player_season = int(season) - 1
+
         # loop through the players and get their data
         for player in players:
             player_id = player["player_id"]
 
-            # get the player data
-            player_data.append(get_player_data(player_id, season, team_name))
+            try:
+                # get the player data
+                player_data.append(get_player_data(player_id, player_season, team_name, league))
+            except:
+                print(f"error with {player['player_name']}")
+                continue
 
         print(f"writing {team_name} to csv")
         # save the player data to a csv
