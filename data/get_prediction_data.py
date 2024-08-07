@@ -130,7 +130,7 @@ def get_player_data(player, season, team, league_id):
     data = page[0]
 
     if num_pages > 1:
-        print(f"FATAL ERROR ON PLAYER {data["player"]["name"]}, MORE THAN ONE PAGE")
+        print(f"FATAL ERROR ON PLAYER {data['player']['name']}, MORE THAN ONE PAGE")
 
     # initialize the player data with 0 since it has to be collected from multiple json elements
     player_data = {
