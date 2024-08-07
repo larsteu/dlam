@@ -24,7 +24,10 @@ def get_page(url):
     response = requests.request("GET", url, headers=headers)
 
     # read into json
-    data = json.loads(response.text, object_pairs_hook=non_null_dict)["response"]
+    json_page = json.loads(response.text, object_pairs_hook=non_null_dict)
+
+    data = json_page["response"]
+    num_pages = json_page["paging"]["total"]
 
     remaining_min = response.headers["X-RateLimit-Remaining"]
     remaining_day = response.headers["x-ratelimit-requests-remaining"]
@@ -35,7 +38,8 @@ def get_page(url):
         print("you hit the daily limit, killing this now")
         sys.exit(1)
 
-    return data
+    return data, num_pages
+
 
 def get_league(player_data, original_league_id):
 
@@ -53,9 +57,10 @@ def get_league(player_data, original_league_id):
 
     return league
 
+
 def get_teams(league, season):
     url = base_url + f"teams?league={league}&season={season}"
-    response = get_page(url)
+    response, num_pages = get_page(url)
 
     curr_teams = []
 
@@ -65,17 +70,32 @@ def get_teams(league, season):
             {"team_id": curr_team["team"]["id"], "team_name": curr_team["team"]["name"]}
         )
 
+    if num_pages > 1:
+        for i in range(2, num_pages + 1):
+            url = base_url + f"teams?league={league}&season={season}&page={i}"
+            response, _ = get_page(url)
+
+            for curr_team in response:
+                curr_teams.append(
+                    {"team_id": curr_team["team"]["id"], "team_name": curr_team["team"]["name"]}
+                )
+
     return curr_teams
 
 
 def get_players(team, season, league):
     url = base_url + f"players?league={league}&season={season}&team={team}"
-    response = get_page(url)
+    response, num_pages = get_page(url)
 
     players = []
 
     # iterate the response and get the player ids and names
     for player in response:
+
+        # check if the player has any appearances
+        if player["statistics"][0]["games"]["appearences"] <= 0:
+            continue
+
         players.append(
             {
                 "player_id": player["player"]["id"],
@@ -83,13 +103,34 @@ def get_players(team, season, league):
             }
         )
 
+    if num_pages > 1:
+        for i in range(2, num_pages + 1):
+            url = base_url + f"players?league={league}&season={season}&team={team}&page={i}"
+            response, _ = get_page(url)
+
+            for player in response:
+                if player["statistics"][0]["games"]["appearences"] <= 0:
+                    continue
+
+                players.append(
+                    {
+                        "player_id": player["player"]["id"],
+                        "player_name": player["player"]["name"],
+                    }
+                )
+
     return players
 
 
 def get_player_data(player, season, team, league_id):
     url = base_url + f"players?id={player}&season={season}"
 
-    data = get_page(url)[0]
+    page, num_pages = get_page(url)
+
+    data = page[0]
+
+    if num_pages > 1:
+        print(f"FATAL ERROR ON PLAYER {data["player"]["name"]}, MORE THAN ONE PAGE")
 
     # initialize the player data with 0 since it has to be collected from multiple json elements
     player_data = {
@@ -196,6 +237,14 @@ if __name__ == "__main__":
 
     # get the list of participating teams
     teams = get_teams(league, season)
+
+    # use for single teams when errors occured
+    '''
+    teams = [{
+        'team_id': 10,
+        'team_name': 'England'
+    }]
+    '''
 
     # loop through the teams and get their players
     for team in teams:
