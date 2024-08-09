@@ -135,6 +135,7 @@ def get_player_data(player, season, team, league_id):
     # initialize the player data with 0 since it has to be collected from multiple json elements
     player_data = {
         "player_name": data["player"]["name"],
+        "player_id": data["player"]["id"],
         "player_position": data["statistics"][0]["games"]["position"],
         "minutes_played": 0,
         "attempted_shots": 0,
@@ -241,8 +242,8 @@ if __name__ == "__main__":
     # use for single teams when errors occured
     '''
     teams = [{
-        'team_id': 10,
-        'team_name': 'England'
+        'team_id': 25,
+        'team_name': 'Germany'
     }]
     '''
 
@@ -257,7 +258,7 @@ if __name__ == "__main__":
         players = get_players(team_id, season, league)
 
         # set the season -1 because the api uses the starting year, not the ending (i.e. for 23/24 it uses 23)
-        player_season = int(season) - 1
+        player_season = int(season)
 
         # loop through the players and get their data
         for player in players:
