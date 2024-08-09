@@ -226,27 +226,36 @@ if __name__ == "__main__":
             write_to_csv(player_data, "temp.csv")
             break
 
-        try:
+        # get the names of the rounds
+        rounds_url = f"https://v3.football.api-sports.io/fixtures/rounds?league={league_id}&season={i}"
+
+        rounds_json = requests.request("GET", rounds_url, headers=headers)
+        rounds = json.loads(rounds_json.text)["response"]
+
+        # filter out all the rounds that start with 'Qualifying'
+        rounds = [step for step in rounds if not step.startswith("Qualifying")]
+
+        match_data: json = []
+        # iterate through the rounds and get the data
+        for step in rounds:
+            current_league_url = current_league_url + "&round=" + step
             # get the data from the api
             response = requests.request("GET", current_league_url, headers=headers)
 
             # read into json
-            match_data = json.loads(response.text)["response"]
+            match_data += json.loads(response.text)["response"]
 
             remaining_requests_per_min = response.headers["X-RateLimit-Remaining"]
             remaining_requests_day = response.headers["x-ratelimit-requests-remaining"]
-        except:
-            print("Error with season: " + str(i) + "\n")
-            continue
 
         # iterate through the entries and get the ids of the fixtures
         for match in match_data:
             # check if the remaining_requests_per_min is 0 (if yes, wait for 1 minute)
-            if remaining_requests_per_min == 0:
+            if int(remaining_requests_per_min) <= 10:
                 time.sleep(60)
 
             # check if the remaining_requests_day is 0 (if yes, save the current_data and stop)
-            if remaining_requests_day == 0:
+            if int(remaining_requests_day) <= 1:
                 write_to_csv(player_data, "temp.csv")
                 break
 
@@ -268,11 +277,6 @@ if __name__ == "__main__":
                 + str(fixture_id)
             )
             response = requests.request("GET", fixture_url, headers=headers)
-
-            # check if the response text is empty (if yes, skip the current match)
-            if not response.text:
-                print("No data for match: " + str(fixture_id) + "\n")
-                continue
 
             # if the response is empty, skip the current match
             if not json.loads(response.text)["response"]:
@@ -440,8 +444,8 @@ if __name__ == "__main__":
             match_nr += 1
 
             # update the remaining requests per minute and day
-            remaining_requests_per_min = response.headers["X-RateLimit-Remaining"]
-            remaining_requests_day = response.headers["x-ratelimit-requests-remaining"]
+            remaining_requests_per_min = int(response.headers["X-RateLimit-Remaining"])
+            remaining_requests_day = int(response.headers["x-ratelimit-requests-remaining"])
             if match_nr % 50 == 0:
                 print("Match number: " + str(match_nr) + " done")
                 print(remaining_requests_day + " requests left for today")
