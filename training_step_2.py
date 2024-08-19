@@ -1,4 +1,6 @@
 import os.path
+
+import pandas as pd
 import torch
 from torch.utils.data import DataLoader
 from models.model_with_leagues import EMModelWithLeague
@@ -13,13 +15,15 @@ NUM_EPOCHS = 20
 LEARNING_RATE = 1e-4
 
 LOAD_MODEL = False
-MODEL_PATH = Path("./trained_models/leuage_model")
+MODEL_PATH = Path("./trained_models/league_model")
 
 INITIAL_MODEL_PATH = Path("./trained_models/base_model")  # Path to the initial EMModel checkpoint
 
 ## Dataset properties ##
-TRAIN_DATASET_PATH = ["./data/nations_league.csv"]
-TEST_DATASET_PATH = ["./data/nations_league.csv"]
+TRAIN_DATASET_PATH = ["data/evaluation/nations_league_with_league.csv"]
+VALIDATION_DATASET_PATH = ["data/evaluation/em20.csv"]
+AVERAGE_PERFORMANCE_2020_DATA_PATH = ["data/4_2020"]
+AVERAGE_PERFORMANCE_2024_DATA_PATH = ["data/4_2024"]
 MAPPINGS_FILE_PATH_TRAIN = "data/mappings_without_names_train.json"
 MAPPINGS_FILE_PATH_TEST = "data/mappings_without_names_test.json"
 CATEGORICAL_COLUMNS = ["home/away", "player_name", "player_position", "league"]
@@ -39,30 +43,75 @@ def get_data_loader():
     dataset_train = DatasetWithLeagues(dataset_train, normalize=True)
     data_loader_train = DataLoader(dataset_train, batch_size=64, shuffle=True)
 
-    # 2. Test data
-    dataset_test = load_dataset(TEST_DATASET_PATH)
-    dataset_test = preprocess_dataset(
-        dataset_test,
+    # 2. Validation data from average performance
+    avg_data = load_avg_performance_data(AVERAGE_PERFORMANCE_2020_DATA_PATH)
+    em_data = load_dataset(VALIDATION_DATASET_PATH)
+
+    columns_to_update = ['minutes_played', 'attempted_shots', 'shots_on_goal', 'goals', 'assists',
+                         'total_passes', 'key_passes', 'pass_completion', 'saves', 'tackles',
+                         'blocks', 'interceptions', 'conceded_goals', 'total_duels', 'won_duels',
+                         'attempted_dribbles', 'successful_dribbles', 'cards']
+    player_no_data = []
+
+    # Ensure 'league' column exists in em_data
+    if 'league' not in em_data.columns:
+        em_data['league'] = None
+   
+    for season, avg_data_season in avg_data.items():
+        print("Aktuelle Saison: ", season)
+        season_data = em_data[em_data['season'] == season]
+
+        # Ensure 'league' column exists in season_data
+        if 'league' not in season_data.columns:
+            season_data['league'] = None
+
+        for index, row in season_data.iterrows():
+            player_id = row['id']
+
+            if player_id in avg_data_season['player_id'].values:
+                for column in columns_to_update:
+                    season_data[column] = season_data[column].astype(float)
+                    season_data.loc[index, column] = avg_data_season.loc[avg_data_season['player_id'] == player_id, column].values[0]
+                # Update 'league' column
+                season_data.loc[index, 'league'] = avg_data_season.loc[avg_data_season['player_id'] == player_id, 'league'].values[0]
+            elif row["player_name"] == "puffer_player":
+                season_data.loc[index, 'league'] = "puffer_league"
+            else:
+                if player_id not in player_no_data:
+                    print(f"Player {row["player_name"]} not found in average performance data.")
+                    player_no_data.append(player_id)
+
+        print(f"Players not found in season {season}: {len(player_no_data)}")
+        # Replace the original data for the current season with the updated data
+        em_data.loc[em_data['season'] == season] = season_data
+
+    validation_data = em_data
+
+    # Preprocess the validation data
+    validation_data = preprocess_dataset(
+        validation_data,
         CATEGORICAL_COLUMNS,
         MAPPINGS_FILE_PATH_TEST,
-        DROP_COLUMNS,
+        DROP_COLUMNS+["team"],
         remove_player_names=True,
     )
-    dataset_test = DatasetWithLeagues(dataset_test, normalize=True, use_existing_normalisation=True)
-    data_loader_test = DataLoader(dataset_test, batch_size=64, shuffle=True)
+
+    # Create a DataLoader for the validation data
+    validation_data = DatasetWithLeagues(validation_data, normalize=True)
+    data_loader_validation = DataLoader(validation_data, batch_size=64, shuffle=True)
 
     # 3. Number of leagues & return
     num_leagues = len(dataset_train.league_mapping)
 
-    return data_loader_train, data_loader_test, num_leagues
+    return data_loader_train, data_loader_validation, num_leagues
 
 
-def train(data_loader_train, data_loader_test, num_leagues):
+def train(data_loader_train, data_loader_validation, num_leagues):
     em_model = EMModelWithLeague(num_leagues=num_leagues).to(DEVICE)
 
     # Load the base model
     assert os.path.exists(INITIAL_MODEL_PATH), f"Initial model path {INITIAL_MODEL_PATH} does not exist. Please run training_step1.py first."  # fmt: skip
-    initial_checkpoint = torch.load(INITIAL_MODEL_PATH)
+    initial_checkpoint = torch.load(INITIAL_MODEL_PATH, map_location=torch.device('cpu')) # TODO remove map location
     em_model.load_state_dict(initial_checkpoint["state_dict"], strict=False)
     print("Loaded initial EMModel weights.")
 
@@ -77,7 +126,7 @@ def train(data_loader_train, data_loader_test, num_leagues):
     if LOAD_MODEL:
         assert os.path.exists(MODEL_PATH), f"Model path {MODEL_PATH} does not exist, but LOAD_MODEL is set to True."
         em_model.load_model(optimizer, LEARNING_RATE, MODEL_PATH)
-        best_eval_loss = em_model.eval_model(dataloader=data_loader_test, device=DEVICE)
+        best_eval_loss = em_model.eval_model(dataloader=data_loader_validation, device=DEVICE)
 
     best_eval_loss = None
 
@@ -90,11 +139,36 @@ def train(data_loader_train, data_loader_test, num_leagues):
             device=DEVICE,
         )
 
-        curr_eval_loss = em_model.eval_model(dataloader=data_loader_test, device=DEVICE)
+        curr_eval_loss = em_model.eval_model(dataloader=data_loader_validation, device=DEVICE)
+        print(f"Validation Loss after epoch {num_epoch + 1}: {curr_eval_loss}")
 
         if best_eval_loss is None or curr_eval_loss < best_eval_loss:
             em_model.save_model(optimizer, MODEL_PATH)
             best_eval_loss = curr_eval_loss
+
+
+def load_avg_performance_data(paths):
+    avg_data = {}
+    for path in paths:
+        year = path.split('_')[-1]
+        dataframes = []
+        for file in os.listdir(path):
+            if file.endswith(".csv"):
+                file_path = os.path.join(path, file)
+                # Check if the file is not empty
+                if os.path.getsize(file_path) > 0:
+                    try:
+                        df = pd.read_csv(file_path)
+                        # Remove duplicates in file
+                        df = df.drop_duplicates(subset=['player_name'], keep='first')
+                        # Only append non-empty dataframes
+                        if df.shape[0] > 0:
+                            dataframes.append(df)
+                    except pd.errors.EmptyDataError:
+                        print(f"Skipping empty file: {file}")
+
+        avg_data[int(year)] = pd.concat(dataframes)
+    return avg_data
 
 
 if __name__ == "__main__":
