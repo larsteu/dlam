@@ -55,15 +55,16 @@ def get_data_loader():
 
     # Ensure 'league' column exists in em_data
     if 'league' not in em_data.columns:
-        em_data['league'] = None
+        em_data['league'] = 'unknown'
    
     for season, avg_data_season in avg_data.items():
         print("Aktuelle Saison: ", season)
-        season_data = em_data[em_data['season'] == season]
+        # get the season data from the evaluation data (i.e. all the data from the given season)
+        season_data = em_data.loc[em_data['season'] == season].copy()
 
         # Ensure 'league' column exists in season_data
         if 'league' not in season_data.columns:
-            season_data['league'] = None
+            season_data['league'] = 'unknown'
 
         for index, row in season_data.iterrows():
             player_id = row['id']
@@ -72,8 +73,10 @@ def get_data_loader():
                 for column in columns_to_update:
                     season_data[column] = season_data[column].astype(float)
                     season_data.loc[index, column] = avg_data_season.loc[avg_data_season['player_id'] == player_id, column].values[0]
+
                 # Update 'league' column
                 season_data.loc[index, 'league'] = avg_data_season.loc[avg_data_season['player_id'] == player_id, 'league'].values[0]
+
             elif row["player_name"] == "puffer_player":
                 season_data.loc[index, 'league'] = "puffer_league"
             else:
@@ -82,8 +85,11 @@ def get_data_loader():
                     player_no_data.append(player_id)
 
         print(f"Players not found in season {season}: {len(player_no_data)}")
+
         # Replace the original data for the current season with the updated data
-        em_data.loc[em_data['season'] == season] = season_data
+        for column in season_data.columns:
+            em_data.loc[em_data['season'] == season, column] = season_data[column].astype(em_data[column].dtype)
+
 
     validation_data = em_data
 
@@ -93,7 +99,7 @@ def get_data_loader():
         CATEGORICAL_COLUMNS,
         MAPPINGS_FILE_PATH_TEST,
         DROP_COLUMNS+["team"],
-        remove_player_names=True,
+        remove_player_names=True
     )
 
     # Create a DataLoader for the validation data
@@ -111,7 +117,13 @@ def train(data_loader_train, data_loader_validation, num_leagues):
 
     # Load the base model
     assert os.path.exists(INITIAL_MODEL_PATH), f"Initial model path {INITIAL_MODEL_PATH} does not exist. Please run training_step1.py first."  # fmt: skip
-    initial_checkpoint = torch.load(INITIAL_MODEL_PATH)
+
+    # checking if the device is cpu, if so, we need to map the model to cpu
+    if DEVICE == "cpu":
+        initial_checkpoint = torch.load(INITIAL_MODEL_PATH, map_location=torch.device("cpu"))
+    else:
+        initial_checkpoint = torch.load(INITIAL_MODEL_PATH)
+
     em_model.load_state_dict(initial_checkpoint["state_dict"], strict=False)
     print("Loaded initial EMModel weights.")
 
