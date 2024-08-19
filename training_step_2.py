@@ -111,7 +111,7 @@ def train(data_loader_train, data_loader_validation, num_leagues):
 
     # Load the base model
     assert os.path.exists(INITIAL_MODEL_PATH), f"Initial model path {INITIAL_MODEL_PATH} does not exist. Please run training_step1.py first."  # fmt: skip
-    initial_checkpoint = torch.load(INITIAL_MODEL_PATH, map_location=torch.device('cpu')) # TODO remove map location
+    initial_checkpoint = torch.load(INITIAL_MODEL_PATH)
     em_model.load_state_dict(initial_checkpoint["state_dict"], strict=False)
     print("Loaded initial EMModel weights.")
 
