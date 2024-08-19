@@ -41,7 +41,7 @@ class EMModelWithLeague(EMModel):
         mean_loss = []
 
         for i, data in enumerate(loop):
-            inputs, target = data
+            inputs, league, target = data
 
             # Extract the league ids from the inputs
             league_ids = inputs[:, :, -1].long()
