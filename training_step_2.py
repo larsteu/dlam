@@ -127,12 +127,15 @@ def train(data_loader_train, data_loader_validation, num_leagues):
     em_model.load_state_dict(initial_checkpoint["state_dict"], strict=False)
     print("Loaded initial EMModel weights.")
 
+    # Set model to train mode
+    em_model.train()
+
     # Freeze the weights of the team classifier
     em_model.freeze_team_classifier()
 
-    # Only optimize the league embedding and game classifier parameters
+    # Only optimize the leagueToScalar and game classifier parameters
     optimizer = torch.optim.Adam(
-        list(em_model.leagueEmbedding.parameters()) + list(em_model.gameClassifier.parameters()), lr=LEARNING_RATE
+        list(em_model.leagueToScalar.parameters()) + list(em_model.gameClassifier.parameters()), lr=LEARNING_RATE
     )
 
     if LOAD_MODEL:
