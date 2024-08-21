@@ -1,10 +1,11 @@
+from functools import total_ordering
+
 import torch
 import torch.nn as nn
 from torch import Tensor
 from models.model import EMModel
 from tqdm import tqdm
 import numpy as np
-
 
 class LeagueToScalar(nn.Module):
     """
@@ -57,10 +58,13 @@ class EMModelWithLeague(EMModel):
         teams = torch.cat((x_1, x_2), dim=1)
         return self.gameClassifier(teams)
 
-    def train_epoch(self, epoch_idx, dataloader, loss_fn, optimizer, device):
+    def train_epoch(self, epoch_idx, dataloader, loss_fn, optimizer, device, draw_threshold=0.1):
         self.train()
         tqdm_dataloader = tqdm(dataloader)
         tqdm_dataloader.set_description(f"EM Model with League - Training epoch {epoch_idx}")
+
+        correct_predictions = 0
+        total_predictions = 0
         mean_loss = []
 
         for inputs, league_ids, target in tqdm_dataloader:
@@ -76,13 +80,25 @@ class EMModelWithLeague(EMModel):
             optimizer.step()
             optimizer.zero_grad()
 
+            # save the number of correct predictions
+            correct, total = self.calculate_correct_predictions(outputs, target, draw_threshold)
+            correct_predictions += correct
+            total_predictions += total
+
             # Logging
             mean_loss.append(loss.to("cpu").item())
             tqdm_dataloader.set_postfix({"Loss": np.array(mean_loss).mean()})
 
-    def eval_model(self, dataloader, device):
+        # calculate the accuracy over the entire dataset
+        accuracy = correct_predictions / total_predictions
+
+        return np.array(mean_loss).mean(), accuracy
+
+    def eval_model(self, dataloader, device, draw_threshold=0.1):
         self.eval()
         total_loss = 0
+        correct_predictions = 0
+        total_predictions = 0
         loss_fn = nn.MSELoss()
 
         with torch.no_grad():
@@ -95,7 +111,16 @@ class EMModelWithLeague(EMModel):
                 loss = loss_fn(outputs, target)
                 total_loss += loss.item()
 
-        return total_loss / len(dataloader)
+                # Calculate the number of correct predictions
+                correct, total = self.calculate_correct_predictions(outputs, target, draw_threshold)
+                correct_predictions += correct
+                total_predictions += total
+
+        # calculate the accuracy and loss over the entire dataset
+        accuracy = correct_predictions / total_predictions
+        final_loss = total_loss / len(dataloader)
+
+        return final_loss, accuracy
 
     def freeze_team_classifier(self):
         for param in self.teamClassifier.parameters():
@@ -104,3 +129,42 @@ class EMModelWithLeague(EMModel):
     def unfreeze_team_classifier(self):
         for param in self.teamClassifier.parameters():
             param.requires_grad = True
+
+    '''
+    The calculate_correct_predictions method calculates the number of correct predictions made by the model.
+    The method takes the model outputs, the target values, and an optional draw_threshold parameter.
+    The draw_threshold parameter is used to determine when the model predicts a draw.
+    If the absolute difference between the predicted goals scored by the two teams is less than the draw_threshold, the model predicts a draw.
+    The method returns the number of correct predictions made by the model.
+    '''
+    def calculate_correct_predictions(self, outputs, target, draw_threshold):
+        # Calculate accuracy
+        batch_size = target.size(0)
+        correct_predictions = 0
+        total_predictions = 0
+        for i in range(batch_size):
+            # get the difference in goals scored (predicted and true)
+            pred_diff = outputs[i, 0] - outputs[i, 1]
+            true_diff = target[i, 0] - target[i, 1]
+
+            # Predict draw if the difference is within the threshold
+            if abs(pred_diff) < draw_threshold:
+                prediction = 0  # Draw
+            elif pred_diff > 0:
+                prediction = 1  # Team 1 wins
+            else:
+                prediction = -1  # Team 2 wins
+
+            # Determine actual result
+            if abs(true_diff) < 1e-6:  # Use a small epsilon for float comparison
+                actual = 0  # Draw
+            elif true_diff > 0:
+                actual = 1  # Team 1 wins
+            else:
+                actual = -1  # Team 2 wins
+
+            if prediction == actual:
+                correct_predictions += 1
+            total_predictions += 1
+
+        return correct_predictions, total_predictions

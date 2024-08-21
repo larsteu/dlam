@@ -143,7 +143,7 @@ def get_player_data(player, match_nr, home_away, game_state, won_loss):
         "shots_on_goal": shots_on_goal,
         "goals": goals,
         "assists": assists,
-        "totat_passes": total_passes,
+        "total_passes": total_passes,
         "key_passes": key_passes,
         "pass_completion": pass_completion,
         "saves": saves,
@@ -335,7 +335,7 @@ if __name__ == "__main__":
                         "shots_on_goal": 0,
                         "goals": 0,
                         "assists": 0,
-                        "totat_passes": 0,
+                        "total_passes": 0,
                         "key_passes": 0,
                         "pass_completion": 0,
                         "saves": 0,
@@ -411,7 +411,7 @@ if __name__ == "__main__":
                         "shots_on_goal": 0,
                         "goals": 0,
                         "assists": 0,
-                        "totat_passes": 0,
+                        "total_passes": 0,
                         "key_passes": 0,
                         "pass_completion": 0,
                         "saves": 0,
@@ -448,8 +448,8 @@ if __name__ == "__main__":
             remaining_requests_day = int(response.headers["x-ratelimit-requests-remaining"])
             if match_nr % 50 == 0:
                 print("Match number: " + str(match_nr) + " done")
-                print(remaining_requests_day + " requests left for today")
-                print(remaining_requests_per_min + " requests left for this minute")
+                print(str(remaining_requests_day) + " requests left for today")
+                print(str(remaining_requests_per_min) + " requests left for this minute")
 
     # write the data to a csv file
     try:

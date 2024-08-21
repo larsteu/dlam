@@ -3,7 +3,7 @@ import os.path
 import pandas as pd
 import json
 from tqdm import tqdm
-
+import matplotlib.pyplot as plt
 
 def special_transforms(df):
     df["pass_completion"] = df["pass_completion"].apply(
@@ -136,3 +136,25 @@ def normalize_dataset(
         json.dump(normalization_info, outfile)
 
     return dataset
+
+
+def plot_loss(train_loss, val_loss, title="Loss"):
+    epochs = list(train_loss.keys())
+    plt.plot(epochs, list(train_loss.values()), label="Train loss")
+    plt.plot(epochs, list(val_loss.values()), label="Validation loss")
+    plt.title(title)
+    plt.xlabel("Epoch")
+    plt.ylabel("Loss")
+    plt.legend()
+    plt.show()
+
+
+def plot_accuracy(train_accuracy, val_accuracy, title="Accuracy"):
+    epochs = list(train_accuracy.keys())
+    plt.plot(epochs, list(train_accuracy.values()), label="Train accuracy")
+    plt.plot(epochs, list(val_accuracy.values()), label="Validation accuracy")
+    plt.title(title)
+    plt.xlabel("Epoch")
+    plt.ylabel("Accuracy")
+    plt.legend()
+    plt.show()

@@ -1,4 +1,4 @@
-match_nr,home/away,player_name,player_position,minutes_played,attempted_shots,shots_on_goal,goals,assists,totat_passes,key_passes,pass_completion,saves,tackles,blocks,interceptions,conceded_goals,total_duels,won_duels,attempted_dribbles,successful_dribbles,cards,game_won,game_result,rating,id,team,season
+match_nr,home/away,player_name,player_position,minutes_played,attempted_shots,shots_on_goal,goals,assists,total_passes,key_passes,pass_completion,saves,tackles,blocks,interceptions,conceded_goals,total_duels,won_duels,attempted_dribbles,successful_dribbles,cards,game_won,game_result,rating,id,team,season
 0,home,I. Akinfeev,G,90,0,0,0,0,23,0,13,0,0,0,0,0,0,0,0,0,0,won,5-0,6.9,821.0,Russia,2018
 0,home,Mário Fernandes,D,90,0,0,0,0,28,1,23,0,2,0,2,0,12,9,0,0,0,won,5-0,7.5,827.0,Russia,2018
 0,home,I. Kutepov,D,90,0,0,0,0,37,0,26,0,0,2,2,0,4,3,0,0,0,won,5-0,7.2,1776.0,Russia,2018

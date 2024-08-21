@@ -1,4 +1,4 @@
-match_nr,home/away,player_name,player_position,minutes_played,attempted_shots,shots_on_goal,goals,assists,totat_passes,key_passes,pass_completion,saves,tackles,blocks,interceptions,conceded_goals,total_duels,won_duels,attempted_dribbles,successful_dribbles,cards,game_won,game_result,rating
+match_nr,home/away,player_name,player_position,minutes_played,attempted_shots,shots_on_goal,goals,assists,total_passes,key_passes,pass_completion,saves,tackles,blocks,interceptions,conceded_goals,total_duels,won_duels,attempted_dribbles,successful_dribbles,cards,game_won,game_result,rating
 0,home,Hugo Lloris,G,90,0,0,0,0,25,0,16,1,0,0,0,3,0,0,0,0,0,won,4-3,5.9
 0,home,Benjamin Pavard,D,90,1,1,1,0,23,0,22,0,3,1,0,0,9,5,0,0,1,won,4-3,7
 0,home,Raphaël Varane,D,90,0,0,0,0,36,0,33,0,0,2,0,0,1,1,1,1,0,won,4-3,6.7

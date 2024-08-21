@@ -1,4 +1,4 @@
-match_nr,home/away,player_name,player_position,minutes_played,attempted_shots,shots_on_goal,goals,assists,totat_passes,key_passes,pass_completion,saves,tackles,blocks,interceptions,conceded_goals,total_duels,won_duels,attempted_dribbles,successful_dribbles,cards,game_won,game_result,rating
+match_nr,home/away,player_name,player_position,minutes_played,attempted_shots,shots_on_goal,goals,assists,total_passes,key_passes,pass_completion,saves,tackles,blocks,interceptions,conceded_goals,total_duels,won_duels,attempted_dribbles,successful_dribbles,cards,game_won,game_result,rating
 0,home,Rui Patrício,G,90,0,0,0,0,14,0,56%,2,0,0,0,1,1,1,0,0,0,won,3-1,6.3
 0,home,Nélson Semedo,D,90,0,0,0,0,35,0,89%,0,2,1,0,0,13,7,1,1,0,won,3-1,6.7
 0,home,Pepe,D,63,1,0,0,0,28,0,84%,0,1,0,1,0,9,7,2,1,0,won,3-1,6.9

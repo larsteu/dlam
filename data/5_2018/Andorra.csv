@@ -1,0 +1,23 @@
+player_name,player_id,player_position,minutes_played,attempted_shots,shots_on_goal,goals,assists,total_passes,key_passes,pass_completion,saves,tackles,blocks,interceptions,conceded_goals,total_duels,won_duels,attempted_dribbles,successful_dribbles,cards,rating,league
+Víctor Rodríguez Soria,5064,Midfielder,52.5,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,UEFA Champions League
+Julià Sánchez Soto,5072,Attacker,90.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,1.0,0.0,UEFA Europa League
+Marc Ferré,106115,Midfielder,89.77777777777777,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.4444444444444444,0.0,UEFA U21 Championship
+Ildefons Lima,5054,Defender,90.0,0.0,0.0,0.5,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.5,0.0,UEFA Champions League
+Ludovic Clemente,56052,Midfielder,44.5,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,Friendlies
+Márcio Vieira,56056,Midfielder,90.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.5,0.0,Friendlies
+Cucu,123539,Attacker,67.25,0.0,0.0,0.25,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,UEFA U19 Championship
+Max Llovera,56048,Defender,77.75,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,UEFA U21 Championship
+Joan Cervós,56046,Defender,90.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.4,0.0,UEFA U19 Championship
+Marc Valés,56050,Defender,79.50000000000001,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.25,0.0,Veikkausliiga
+Marc Pujol,56055,Midfielder,85.5,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,Friendlies
+Cristian Martínez,56053,Attacker,78.0,0.0,0.0,1.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,Friendlies
+Sergi Moreno,56054,Attacker,14.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.5,0.0,Friendlies
+Álex Martínez,56057,Attacker,67.44444444444444,0.0,0.0,0.2222222222222222,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,UEFA U21 Championship
+Chus Rubio,5133,Defender,75.6923076923077,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.15384615384615385,0.0,UEFA U21 Championship
+Jordi Rubio,5134,Defender,48.666666666666664,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.6666666666666666,0.0,UEFA Europa League
+Marc Rebés,5058,Defender,87.125,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.5,0.0,UEFA U21 Championship
+Emili García,56047,Defender,26.5,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,Friendlies
+Marc García,70355,Midfielder,55.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,Friendlies
+Jordi Aláez,56051,Midfielder,78.58333333333333,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.3333333333333333,0.0,UEFA U21 Championship
+Moisés San Nicolás,5059,Defender,35.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,Friendlies
+Josep Gómes,56044,Goalkeeper,90.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,Friendlies
