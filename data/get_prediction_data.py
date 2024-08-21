@@ -258,7 +258,7 @@ if __name__ == "__main__":
         players = get_players(team_id, season, league)
 
         # set the season -1 because the api uses the starting year, not the ending (i.e. for 23/24 it uses 23)
-        player_season = int(season)
+        player_season = int(season) - 1
 
         # loop through the players and get their data
         for player in players:
