@@ -2,6 +2,8 @@ import os.path
 
 import pandas as pd
 import json
+
+from torch import tensor
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 
@@ -139,8 +141,11 @@ def normalize_dataset(
 
 
 def plot_loss(train_loss, val_loss, title="Loss"):
+    if train_loss is None:
+        train_loss = {epoch: 0 for epoch in val_loss.keys()}
     epochs = list(train_loss.keys())
-    plt.plot(epochs, list(train_loss.values()), label="Train loss")
+
+    if train_loss is not None: plt.plot(epochs, list(train_loss.values()), label="Train loss")
     plt.plot(epochs, list(val_loss.values()), label="Validation loss")
     plt.title(title)
     plt.xlabel("Epoch")
@@ -150,11 +155,60 @@ def plot_loss(train_loss, val_loss, title="Loss"):
 
 
 def plot_accuracy(train_accuracy, val_accuracy, title="Accuracy"):
+    if train_accuracy is None:
+        train_accuracy = {epoch: 0 for epoch in val_accuracy.keys()}
     epochs = list(train_accuracy.keys())
-    plt.plot(epochs, list(train_accuracy.values()), label="Train accuracy")
+
+    if train_accuracy is not None: plt.plot(epochs, list(train_accuracy.values()), label="Train accuracy")
     plt.plot(epochs, list(val_accuracy.values()), label="Validation accuracy")
     plt.title(title)
     plt.xlabel("Epoch")
     plt.ylabel("Accuracy")
     plt.legend()
     plt.show()
+
+'''
+The calculate_correct_predictions method calculates the number of correct predictions made by the model.
+The method takes the model outputs, the target values, and an optional draw_threshold parameter.
+The draw_threshold parameter is used to determine when the model predicts a draw.
+If the absolute difference between the predicted goals scored by the two teams is less than the draw_threshold, the model predicts a draw.
+The method returns the number of correct predictions made by the model.
+'''
+def calculate_correct_predictions(outputs, target, draw_threshold, return_tensor=False):
+    # Calculate accuracy
+    batch_size = target.size(0)
+    correct_predictions = 0
+    total_predictions = 0
+    save_predictions = []
+    for i in range(batch_size):
+        # get the difference in goals scored (predicted and true)
+        pred_diff = outputs[i, 0] - outputs[i, 1]
+        true_diff = target[i, 0] - target[i, 1]
+
+        # Predict draw if the difference is within the threshold
+        if abs(pred_diff) < draw_threshold:
+            prediction = 0  # Draw
+        elif pred_diff > 0:
+            prediction = 1  # Team 1 wins
+        else:
+            prediction = -1  # Team 2 wins
+
+        # Determine actual result
+        if true_diff == 0:  # Use a small epsilon for float comparison
+            actual = 0  # Draw
+        elif true_diff > 0:
+            actual = 1  # Team 1 wins
+        else:
+            actual = -1  # Team 2 wins
+
+        if prediction == actual:
+            correct_predictions += 1
+            save_predictions.append(3)
+        else:
+            save_predictions.append(0)
+        total_predictions += 1
+
+    if return_tensor:
+        return tensor(save_predictions)
+
+    return correct_predictions, total_predictions
