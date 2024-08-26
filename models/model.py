@@ -3,6 +3,7 @@ import torch
 import torch.nn as nn
 from tqdm import tqdm
 from pathlib import Path
+from utils import calculate_correct_predictions
 
 
 class EMModel(nn.Module):
@@ -41,7 +42,29 @@ class EMModel(nn.Module):
 
             outputs = self(inputs)
 
-            loss = loss_fn(outputs, target)
+            # TODO: possibility 1
+            '''
+            # compute difference between the two teams and give this to the loss function
+            output_diff = outputs[:, 0] - outputs[:, 1]
+            target_diff = target[:, 0] - target[:, 1]
+
+            loss = loss_fn(output_diff, target_diff)
+            '''
+            # TODO: possibility 2
+            # loss = loss_fn(outputs[:, 0], target[:, 0]) + loss_fn(outputs[:, 1], target[:, 1])
+
+            # TODO: possibility 3
+            # Get the prediction correctness tensor
+            result_tensor = calculate_correct_predictions(outputs, target, 0.02, return_tensor=True)
+
+            # Create a weight tensor (2 for incorrect predictions, 1 for correct ones)
+            weight_tensor = 3 - result_tensor  # This will be 2 for incorrect and 1 for correct predictions
+
+            # Calculate the element-wise loss
+            element_wise_loss = nn.MSELoss(reduction='none')(outputs, target)
+
+            # Apply the weights to the loss
+            loss = (element_wise_loss * weight_tensor.unsqueeze(1)).mean()
             loss.backward()
             mean_loss.append(loss.to("cpu").item())
 
@@ -56,8 +79,13 @@ class EMModel(nn.Module):
         mean_loss = []
         loss_fn = self.get_loss()
 
+        correct_predictions = 0
+        total_predictions = 0
+
         self.train(False)
 
+        # print the prediction and target values for the first batch
+        first = True
         for i, data in enumerate(loop):
             inputs, target = data
             inputs = inputs.float().to(device)
@@ -65,13 +93,32 @@ class EMModel(nn.Module):
 
             with torch.no_grad():
                 outputs = self(inputs)
-                loss = loss_fn(outputs, target)
+                # TODO: possibility 1
+                '''
+                # compute difference between the two teams and give this to the loss function
+                output_diff = outputs[:, 0] - outputs[:, 1]
+                target_diff = target[:, 0] - target[:, 1]
+
+                loss = loss_fn(output_diff, target_diff)
+                '''
+                # TODO: possibility 2
+                loss = loss_fn(outputs[:, 0], target[:, 0]) + loss_fn(outputs[:, 1], target[:, 1])
+
+                if first:
+                    print("Prediction:", outputs[0].to("cpu").numpy())
+                    print("Target:", target[0].to("cpu").numpy())
+                    first = False
+
+                # save the number of correct predictions
+                correct, total = calculate_correct_predictions(outputs, target, 0.02)
+                correct_predictions += correct
+                total_predictions += total
             mean_loss.append(loss.to("cpu").item())
 
             loop.set_postfix({"Loss": np.array(mean_loss).mean()})
 
         self.train(True)
-        return np.array(mean_loss).mean()
+        return np.array(mean_loss).mean(), correct_predictions / total_predictions
 
     def save_model(self, optimizer, path: Path):
         print("=> Saving checkpoint")

@@ -3,7 +3,7 @@ import torch
 from torch.utils.data import DataLoader
 from models.model import EMModel
 from dataset import DatasetWithoutLeagues
-from utils import load_dataset, preprocess_dataset
+from utils import load_dataset, preprocess_dataset, plot_loss, plot_accuracy
 from pathlib import Path
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
@@ -14,11 +14,10 @@ TRAIN_DATASET_PATH = [
     "./data/ligue1_16-23.csv",
     "./data/la_liga_16-23.csv",
     "./data/premier_league_16-23.csv",
-    "./data/serie_a_16-23.csv",
 ]
-TEST_DATASET_PATH = ["./data/evaluation/em12-20.csv"]
-MAPPINGS_FILE_PATH_TRAIN = "data/mappings_without_names_train.json"
-MAPPINGS_FILE_PATH_TEST = "data/mappings_without_names_test.json"
+TEST_DATASET_PATH = ["./data/serie_a_16-23.csv"]
+MAPPINGS_FILE_PATH_TRAIN = "data/mappings_without_names_train_model1.json"
+MAPPINGS_FILE_PATH_TEST = "data/mappings_without_names_test_model1.json"
 CATEGORICAL_COLUMNS = ["home/away", "player_name", "player_position"]
 DROP_COLUMNS = ["game_won", "rating"]
 
@@ -63,6 +62,10 @@ def train(args):
     best_eval_loss = None
     model_path = Path(args.model_path)
 
+    # Save the accuracies and losses for plotting with their respective epochs
+    save_accuracies_eval = {}
+    save_losses_eval = {}
+
     if args.load_model and model_path.exists():
         em_model.load_model(optimizer, args.lr, model_path)
         best_eval_loss = em_model.eval_model(dataloader=data_loader_test, device=DEVICE)
@@ -76,14 +79,20 @@ def train(args):
             device=DEVICE,
         )
 
-        curr_eval_loss = em_model.eval_model(dataloader=data_loader_test, device=DEVICE)
-        print(f"Epoch {num_epoch + 1}/{args.epochs}, Evaluation Loss: {curr_eval_loss}")
+        curr_eval_loss, curr_eval_accuracy = em_model.eval_model(dataloader=data_loader_test, device=DEVICE)
+        print(f"Epoch {num_epoch + 1}/{args.epochs}, Evaluation Loss: {curr_eval_loss}", f"Accuracy: {curr_eval_accuracy}")
+
+        # Save the accuracies and losses for plotting with their respective epochs
+        save_accuracies_eval[num_epoch] = curr_eval_accuracy
+        save_losses_eval[num_epoch] = curr_eval_loss
 
         if best_eval_loss is None or curr_eval_loss < best_eval_loss:
             em_model.save_model(optimizer, model_path)
             best_eval_loss = curr_eval_loss
             print(f"Model saved. New best evaluation loss: {best_eval_loss}")
 
+    plot_loss(None, save_losses_eval, title="Loss")
+    plot_accuracy(None, save_accuracies_eval, title="Accuracy")
     print(f"Training completed. Final best evaluation loss: {best_eval_loss}")
 
 

@@ -21,8 +21,8 @@ MODEL_PATH = Path("./trained_models/league_model")
 INITIAL_MODEL_PATH = Path("./trained_models/base_model")  # Path to the initial EMModel checkpoint
 
 ## Dataset properties ##
-TRAIN_DATASET_PATHS = ["data/nations_league_new.csv", "data/evaluation/wm18.csv", "data/evaluation/wm22.csv"]
-VALIDATION_DATASET_PATH = ["data/evaluation/em24.csv", "data/evaluation/em20.csv"]
+TRAIN_DATASET_PATHS = ["data/nations_league_new.csv", "data/evaluation/wm18.csv", "data/evaluation/wm22.csv", "data/evaluation/em20.csv"]
+VALIDATION_DATASET_PATH = ["data/evaluation/em24.csv"]
 AVERAGE_PERFORMANCE_PATHS = [
     (2020, "data/4_2020"),
     (2024, "data/4_2024"),
@@ -120,7 +120,7 @@ def get_data_loader():
     dataset_train = add_league_to_dataset(dataset_train, avg_data)
 
     # Replace the training stats with the average performance TODO: this is experimental, depending on the training performance we might want to change this
-    #dataset_train = replace_stats_with_avg(avg_data, dataset_train, COLUMNS_TO_UPDATE)
+    dataset_train = replace_stats_with_avg(avg_data, dataset_train, COLUMNS_TO_UPDATE)
 
     # Preprocess the train data, i.e. map the categorical columns to integers, drop some columns, etc.
     dataset_train = preprocess_dataset(
@@ -195,7 +195,7 @@ def train(data_loader_train, data_loader_validation, num_leagues):
     best_eval_loss = None
 
     # TODO: pull this out of scope
-    draw_threshold = 0.1
+    draw_threshold = 0.02
 
     # Save the accuracies and losses for plotting with their respective epochs
     save_accuracies_train = {}
@@ -226,6 +226,7 @@ def train(data_loader_train, data_loader_validation, num_leagues):
         if best_eval_loss is None or curr_eval_loss < best_eval_loss:
             em_model.save_model(optimizer, MODEL_PATH)
             best_eval_loss = curr_eval_loss
+
 
     # show the training and validation loss and accuracy
     plot_loss(save_losses_train, save_losses_validation)
