@@ -3,7 +3,7 @@ import os.path
 import pandas as pd
 import json
 
-from torch import tensor
+import torch
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 
@@ -175,40 +175,23 @@ If the absolute difference between the predicted goals scored by the two teams i
 The method returns the number of correct predictions made by the model.
 '''
 def calculate_correct_predictions(outputs, target, draw_threshold, return_tensor=False):
-    # Calculate accuracy
-    batch_size = target.size(0)
-    correct_predictions = 0
-    total_predictions = 0
-    save_predictions = []
-    for i in range(batch_size):
-        # get the difference in goals scored (predicted and true)
-        pred_diff = outputs[i, 0] - outputs[i, 1]
-        true_diff = target[i, 0] - target[i, 1]
+    # Calculate the difference in goals scored (predicted and true)
+    pred_diff = outputs[:, 0] - outputs[:, 1]
+    true_diff = target[:, 0] - target[:, 1]
 
-        # Predict draw if the difference is within the threshold
-        if abs(pred_diff) < draw_threshold:
-            prediction = 0  # Draw
-        elif pred_diff > 0:
-            prediction = 1  # Team 1 wins
-        else:
-            prediction = -1  # Team 2 wins
+    # Predict draw if the difference is within the threshold
+    prediction = torch.where(torch.abs(pred_diff) < draw_threshold, torch.zeros_like(pred_diff),
+                             torch.where(pred_diff > 0, torch.ones_like(pred_diff), -torch.ones_like(pred_diff)))
 
-        # Determine actual result
-        if true_diff == 0:  # Use a small epsilon for float comparison
-            actual = 0  # Draw
-        elif true_diff > 0:
-            actual = 1  # Team 1 wins
-        else:
-            actual = -1  # Team 2 wins
+    # Determine actual result
+    actual = torch.where(true_diff == 0, torch.zeros_like(true_diff),
+                         torch.where(true_diff > 0, torch.ones_like(true_diff), -torch.ones_like(true_diff)))
 
-        if prediction == actual:
-            correct_predictions += 1
-            save_predictions.append(3)
-        else:
-            save_predictions.append(0)
-        total_predictions += 1
+    # Compare predictions to actual results
+    correct_predictions = (prediction == actual).sum().item()
+    total_predictions = prediction.size(0)
 
     if return_tensor:
-        return tensor(save_predictions)
+        return torch.where(prediction == actual, torch.full_like(prediction, 2), torch.zeros_like(prediction))
 
     return correct_predictions, total_predictions

@@ -5,6 +5,8 @@ from models.model import EMModel
 from dataset import DatasetWithoutLeagues
 from utils import load_dataset, preprocess_dataset, plot_loss, plot_accuracy
 from pathlib import Path
+from sklearn.model_selection import train_test_split
+from torch.utils.data import Subset
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -13,9 +15,10 @@ TRAIN_DATASET_PATH = [
     "./data/bundesliga_16-23.csv",
     "./data/ligue1_16-23.csv",
     "./data/la_liga_16-23.csv",
-    "./data/premier_league_16-23.csv",
+    "./data/serie_a_16-23.csv",
+    "./data/temp.csv",
 ]
-TEST_DATASET_PATH = ["./data/serie_a_16-23.csv"]
+TEST_DATASET_PATH = []
 MAPPINGS_FILE_PATH_TRAIN = "data/mappings_without_names_train_model1.json"
 MAPPINGS_FILE_PATH_TEST = "data/mappings_without_names_test_model1.json"
 CATEGORICAL_COLUMNS = ["home/away", "player_name", "player_position"]
@@ -32,28 +35,44 @@ def parse_args():
 
 
 def train(args):
-    dataset_train = load_dataset(TRAIN_DATASET_PATH)
-    dataset_train = preprocess_dataset(
-        dataset_train,
+    full_dataset = load_dataset(TRAIN_DATASET_PATH)
+    full_dataset = preprocess_dataset(
+        full_dataset,
         CATEGORICAL_COLUMNS,
         MAPPINGS_FILE_PATH_TRAIN,
         DROP_COLUMNS,
         remove_player_names=True,
     )
 
-    dataset_train = DatasetWithoutLeagues(dataset_train, normalize=True)
-    data_loader_train = DataLoader(dataset_train, batch_size=64, shuffle=True)
+    # Create the full dataset
+    full_dataset = DatasetWithoutLeagues(full_dataset, normalize=True)
 
-    dataset_test = load_dataset(TEST_DATASET_PATH)
-    dataset_test = preprocess_dataset(
-        dataset_test,
-        CATEGORICAL_COLUMNS,
-        MAPPINGS_FILE_PATH_TEST,
-        DROP_COLUMNS,
-        remove_player_names=True,
+    # Get the number of samples in the dataset
+    dataset_size = len(full_dataset)
+
+    # Create train/validation split
+    train_size = int(0.8 * dataset_size)
+    val_size = dataset_size - train_size
+
+    # Use random_split to create the split
+    train_dataset, val_dataset = torch.utils.data.random_split(full_dataset, [train_size, val_size])
+
+    # Create DataLoaders
+    data_loader_train = DataLoader(
+        train_dataset,
+        batch_size=64,
+        shuffle=True,
+        num_workers=4,
+        pin_memory=True
     )
-    dataset_test = DatasetWithoutLeagues(dataset_test, normalize=True, use_existing_normalisation=True)
-    data_loader_test = DataLoader(dataset_test, batch_size=64, shuffle=True)
+
+    data_loader_val = DataLoader(
+        val_dataset,
+        batch_size=64,
+        shuffle=False,  # No need to shuffle validation data
+        num_workers=4,
+        pin_memory=True
+    )
 
     em_model = EMModel().to(DEVICE)
 
@@ -68,7 +87,7 @@ def train(args):
 
     if args.load_model and model_path.exists():
         em_model.load_model(optimizer, args.lr, model_path)
-        best_eval_loss = em_model.eval_model(dataloader=data_loader_test, device=DEVICE)
+        best_eval_loss = em_model.eval_model(dataloader=data_loader_val, device=DEVICE)
         print(f"Loaded pre-trained model. Initial evaluation loss: {best_eval_loss}")
 
     for num_epoch in range(args.epochs):
@@ -79,7 +98,7 @@ def train(args):
             device=DEVICE,
         )
 
-        curr_eval_loss, curr_eval_accuracy = em_model.eval_model(dataloader=data_loader_test, device=DEVICE)
+        curr_eval_loss, curr_eval_accuracy = em_model.eval_model(dataloader=data_loader_val, device=DEVICE)
         print(f"Epoch {num_epoch + 1}/{args.epochs}, Evaluation Loss: {curr_eval_loss}", f"Accuracy: {curr_eval_accuracy}")
 
         # Save the accuracies and losses for plotting with their respective epochs
