@@ -120,7 +120,7 @@ def get_data_loader():
     dataset_train = add_league_to_dataset(dataset_train, avg_data)
 
     # Replace the training stats with the average performance TODO: this is experimental, depending on the training performance we might want to change this
-    dataset_train = replace_stats_with_avg(avg_data, dataset_train, COLUMNS_TO_UPDATE)
+    #dataset_train = replace_stats_with_avg(avg_data, dataset_train, COLUMNS_TO_UPDATE)
 
     # Preprocess the train data, i.e. map the categorical columns to integers, drop some columns, etc.
     dataset_train = preprocess_dataset(
@@ -175,6 +175,12 @@ def train(data_loader_train, data_loader_validation, num_leagues):
 
     em_model.load_state_dict(initial_checkpoint["state_dict"], strict=False)
     print("Loaded initial EMModel weights.")
+    em_model.to(DEVICE)
+
+    # do an evaluation of the model with the initial weights
+    best_eval_loss, accu = em_model.eval_model(dataloader=data_loader_validation, device=DEVICE)
+    print(f"Initial evaluation loss: {best_eval_loss}")
+    print(f"Initial evaluation accuracy: {accu}")
 
     # Set model to train mode
     em_model.train()
@@ -195,7 +201,7 @@ def train(data_loader_train, data_loader_validation, num_leagues):
     best_eval_loss = None
 
     # TODO: pull this out of scope
-    draw_threshold = 0.02
+    draw_threshold = 0.05
 
     # Save the accuracies and losses for plotting with their respective epochs
     save_accuracies_train = {}
