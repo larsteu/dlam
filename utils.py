@@ -7,10 +7,9 @@ import torch
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 
+
 def special_transforms(df):
-    df["pass_completion"] = df["pass_completion"].apply(
-        lambda x: int(x.replace("%", "")) if type(x) is str else x
-    )
+    df["pass_completion"] = df["pass_completion"].apply(lambda x: int(x.replace("%", "")) if type(x) is str else x)
     return df
 
 
@@ -34,9 +33,7 @@ def preprocess_dataset(
     if remove_player_names:
         dataset["player_name"] = "Player"
 
-    processed_dataset = categories_to_numerical(
-        dataset, categorical_columns, mappings_file_path
-    )
+    processed_dataset = categories_to_numerical(dataset, categorical_columns, mappings_file_path)
     return processed_dataset
 
 
@@ -46,9 +43,7 @@ def categories_to_numerical(dataset: pd.DataFrame, cat_cols, mappings_file_path)
             mappings_file = json.load(json_file)
 
         loop = tqdm(range(1))
-        loop.set_description(
-            f"Converting categorical values to numerical (using existing mapping file)"
-        )
+        loop.set_description(f"Converting categorical values to numerical (using existing mapping file)")
 
         for i, _ in enumerate(loop):
             dataset = dataset.replace(mappings_file)
@@ -102,9 +97,7 @@ def denormalize_dataset(dataset, normalization_info_file):
     return dataset
 
 
-def normalize_dataset(
-    dataset, normalization_info_file_path, use_existing_normalisation=False
-):
+def normalize_dataset(dataset, normalization_info_file_path, use_existing_normalisation=False):
     normalization_info = {}
     loop = tqdm(dataset.columns)
     loop.set_description(f"Normalizing data")
@@ -145,7 +138,8 @@ def plot_loss(train_loss, val_loss, title="Loss"):
         train_loss = {epoch: 0 for epoch in val_loss.keys()}
     epochs = list(train_loss.keys())
 
-    if train_loss is not None: plt.plot(epochs, list(train_loss.values()), label="Train loss")
+    if train_loss is not None:
+        plt.plot(epochs, list(train_loss.values()), label="Train loss")
     plt.plot(epochs, list(val_loss.values()), label="Validation loss")
     plt.title(title)
     plt.xlabel("Epoch")
@@ -159,7 +153,8 @@ def plot_accuracy(train_accuracy, val_accuracy, title="Accuracy"):
         train_accuracy = {epoch: 0 for epoch in val_accuracy.keys()}
     epochs = list(train_accuracy.keys())
 
-    if train_accuracy is not None: plt.plot(epochs, list(train_accuracy.values()), label="Train accuracy")
+    if train_accuracy is not None:
+        plt.plot(epochs, list(train_accuracy.values()), label="Train accuracy")
     plt.plot(epochs, list(val_accuracy.values()), label="Validation accuracy")
     plt.title(title)
     plt.xlabel("Epoch")
@@ -167,16 +162,16 @@ def plot_accuracy(train_accuracy, val_accuracy, title="Accuracy"):
     plt.legend()
     plt.show()
 
-'''
-The calculate_correct_predictions method calculates the number of correct predictions made by the model.
-The method takes the model outputs, the target values, and an optional draw_threshold parameter.
-The draw_threshold parameter is used to determine when the model predicts a draw.
-If the absolute difference between the predicted goals scored by the two teams is less than the draw_threshold, the model predicts a draw.
-The method returns the number of correct predictions made by the model.
-'''
+
 def calculate_correct_predictions(outputs, target, return_tensor=False):
+    """
+    The calculate_correct_predictions method calculates the number of correct predictions made by the model.
+    The method takes the model outputs, the target values, and an optional draw_threshold parameter.
+    The draw_threshold parameter is used to determine when the model predicts a draw.
+    If the absolute difference between the predicted goals scored by the two teams is less than the draw_threshold, the model predicts a draw.
+    The method returns the number of correct predictions made by the model.
+    """
     correct_predictions = 0
-    total_predictions = 0
 
     for i in range(len(outputs)):
         # check which output has the highest value
@@ -190,4 +185,5 @@ def calculate_correct_predictions(outputs, target, return_tensor=False):
             if target[i][2] == 1:
                 correct_predictions += 1
 
+    total_predictions = len(outputs)
     return correct_predictions, total_predictions
