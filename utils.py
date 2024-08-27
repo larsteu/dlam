@@ -174,24 +174,20 @@ The draw_threshold parameter is used to determine when the model predicts a draw
 If the absolute difference between the predicted goals scored by the two teams is less than the draw_threshold, the model predicts a draw.
 The method returns the number of correct predictions made by the model.
 '''
-def calculate_correct_predictions(outputs, target, draw_threshold, return_tensor=False):
-    # Calculate the difference in goals scored (predicted and true)
-    pred_diff = outputs[:, 0] - outputs[:, 1]
-    true_diff = target[:, 0] - target[:, 1]
+def calculate_correct_predictions(outputs, target, return_tensor=False):
+    correct_predictions = 0
+    total_predictions = 0
 
-    # Predict draw if the difference is within the threshold
-    prediction = torch.where(torch.abs(pred_diff) < draw_threshold, torch.zeros_like(pred_diff),
-                             torch.where(pred_diff > 0, torch.ones_like(pred_diff), -torch.ones_like(pred_diff)))
-
-    # Determine actual result
-    actual = torch.where(true_diff == 0, torch.zeros_like(true_diff),
-                         torch.where(true_diff > 0, torch.ones_like(true_diff), -torch.ones_like(true_diff)))
-
-    # Compare predictions to actual results
-    correct_predictions = (prediction == actual).sum().item()
-    total_predictions = prediction.size(0)
-
-    if return_tensor:
-        return torch.where(prediction == actual, torch.full_like(prediction, 2), torch.zeros_like(prediction))
+    for i in range(len(outputs)):
+        # check which output has the highest value
+        if outputs[i][0] > outputs[i][1] and outputs[i][0] > outputs[i][2]:
+            if target[i][0] == 1:
+                correct_predictions += 1
+        elif outputs[i][1] > outputs[i][0] and outputs[i][1] > outputs[i][2]:
+            if target[i][1] == 1:
+                correct_predictions += 1
+        elif outputs[i][2] > outputs[i][0] and outputs[i][2] > outputs[i][1]:
+            if target[i][2] == 1:
+                correct_predictions += 1
 
     return correct_predictions, total_predictions

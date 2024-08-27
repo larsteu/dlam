@@ -22,11 +22,19 @@ class DatasetWithoutLeagues(Dataset):
         return int(len(self.dataset) / 52)
 
     def __getitem__(self, idx):
-        label_1 = self.dataset.iloc[idx * 52].values[-2]
-        label_2 = self.dataset.iloc[idx * 52].values[-1]
+        team_1 = self.dataset.iloc[idx * 52].values[-2]
+        team_2 = self.dataset.iloc[idx * 52].values[-1]
+        # if team 1 wins, label is [1,0,0], if team 2 wins label is [0,1,0], if draw, label is [0,0,1]
+        if team_1 > team_2:
+            label = np.array([1, 0, 0])
+        elif team_1 < team_2:
+            label = np.array([0, 1, 0])
+        else:
+            label = np.array([0, 0, 1])
+
         data = self.dataset.drop(columns=["team_1_goals", "team_2_goals"])
         data = data.iloc[idx * 52 : (idx * 52) + 52].values
-        return np.array([data]), np.array([label_1, label_2])
+        return np.array([data]), label
 
 
 class DatasetWithLeagues(DatasetWithoutLeagues):
