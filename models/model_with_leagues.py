@@ -10,6 +10,7 @@ import numpy as np
 from utils import calculate_correct_predictions
 from torch.nn import functional
 
+
 class LeagueToScalar(nn.Module):
     """
     Produces a single scalar value for representing the team strength depending on the league of the players.
@@ -62,16 +63,18 @@ class EMModelWithLeague(EMModel):
         return self.gameClassifier(teams)
 
     def custom_loss(self, outputs, targets, draw_threshold=0.05, mse_weight=0.5, outcome_weight=0.5):
-        mse_loss = functional.mse_loss(outputs, targets, reduction='none')
+        mse_loss = functional.mse_loss(outputs, targets, reduction="none")
 
         # Calculate match outcome
         pred_diff = outputs[:, 0] - outputs[:, 1]
         true_diff = targets[:, 0] - targets[:, 1]
 
-        pred_outcome = torch.where(torch.abs(pred_diff) < draw_threshold, torch.zeros_like(pred_diff),
-                                   torch.sign(pred_diff))
-        true_outcome = torch.where(torch.abs(true_diff) < draw_threshold, torch.zeros_like(true_diff),
-                                   torch.sign(true_diff))
+        pred_outcome = torch.where(
+            torch.abs(pred_diff) < draw_threshold, torch.zeros_like(pred_diff), torch.sign(pred_diff)
+        )
+        true_outcome = torch.where(
+            torch.abs(true_diff) < draw_threshold, torch.zeros_like(true_diff), torch.sign(true_diff)
+        )
 
         # Calculate outcome loss (use binary cross-entropy for 3-class problem)
         outcome_loss = functional.cross_entropy(pred_outcome.unsqueeze(1), true_outcome.float().unsqueeze(1))
@@ -82,7 +85,9 @@ class EMModelWithLeague(EMModel):
         return combined_loss
 
     def train_epoch(self, epoch_idx, dataloader, loss_fn, optimizer, device, draw_threshold=0.05):
-        self.train()
+        """
+        Expects the model to be in training mode.
+        """
         tqdm_dataloader = tqdm(dataloader)
         tqdm_dataloader.set_description(f"EM Model with League - Training epoch {epoch_idx}")
 
@@ -98,7 +103,7 @@ class EMModelWithLeague(EMModel):
 
             # Forward pass, compute loss & backpropagate
             outputs = self(inputs, league_ids)
-            '''
+            """
             # Get the prediction correctness tensor
             result_tensor = calculate_correct_predictions(outputs, target, draw_threshold, return_tensor=True)
 
@@ -110,7 +115,7 @@ class EMModelWithLeague(EMModel):
 
             # Apply the weights to the loss
             loss = (element_wise_loss * weight_tensor.unsqueeze(1)).mean()
-            '''
+            """
             loss = self.custom_loss(outputs, target, draw_threshold)
 
             loss.backward()
@@ -132,6 +137,9 @@ class EMModelWithLeague(EMModel):
         return np.array(mean_loss).mean(), accuracy
 
     def eval_model(self, dataloader, device, draw_threshold=0.05):
+        """
+        Expects the model to be in evaluation mode.
+        """
         self.eval()
         total_loss = 0
         correct_predictions = 0
@@ -146,13 +154,13 @@ class EMModelWithLeague(EMModel):
                 target = target.float().to(device)
 
                 outputs = self(inputs, league_ids)
-                #loss = loss_fn(outputs[:, 0], target[:, 0]) + loss_fn(outputs[:, 1], target[:, 1])
+                # loss = loss_fn(outputs[:, 0], target[:, 0]) + loss_fn(outputs[:, 1], target[:, 1])
                 loss = self.custom_loss(outputs, target, draw_threshold)
 
                 total_loss += loss.item()
 
                 if first:
-                    print("Prediction:", outputs[0].to("cpu").numpy())
+                    print("Prediction:", [f"{val:.2f}" for val in outputs[0].to("cpu").numpy()])
                     print("Target:", target[0].to("cpu").numpy())
                     first = False
 

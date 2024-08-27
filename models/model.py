@@ -30,7 +30,7 @@ class EMModel(nn.Module):
         teams = torch.concat((x_1, x_2), dim=1)
         return self.gameClassifier(teams)
 
-    '''
+    """
     def custom_loss(self, outputs, targets, draw_threshold=0.05, mse_weight=0.7, outcome_weight=0.3):
         mse_loss = functional.mse_loss(outputs, targets, reduction='none')
 
@@ -50,13 +50,16 @@ class EMModel(nn.Module):
         combined_loss = mse_weight * mse_loss.mean() + outcome_weight * outcome_loss
 
         return combined_loss
-    '''
+    """
+
     def train_epoch(self, epoch_idx, dataloader, optimizer, device):
+        """
+        Expects the model to be in training mode.
+        """
         loop = tqdm(dataloader)
         loop.set_description(f"EM Model - Training epoch {epoch_idx}")
         loss_fn = self.get_loss()
         mean_loss = []
-        first = True
         correct_predictions = 0
         total_predictions = 0
 
@@ -65,11 +68,6 @@ class EMModel(nn.Module):
             inputs = inputs.float().to(device)
             target = target.float().to(device)
             outputs = self(inputs)
-
-            if first:
-                print("Prediction:", outputs[0].to("cpu"))
-                print("Target:", target[0].to("cpu"))
-                first = False
 
             loss = loss_fn(outputs, target)
 
@@ -90,8 +88,11 @@ class EMModel(nn.Module):
         return torch.tensor(mean_loss).mean().item(), accuracy
 
     def eval_model(self, dataloader, device):
+        """
+        Expects the model to be in evaluation mode.
+        """
         loop = tqdm(dataloader)
-        loop.set_description(f"EM Model - Evaluation")
+        loop.set_description("EM Model - Evaluation")
 
         mean_loss = []
         loss_fn = self.get_loss()
@@ -99,10 +100,6 @@ class EMModel(nn.Module):
         correct_predictions = 0
         total_predictions = 0
 
-        self.train(False)
-
-        # print the prediction and target values for the first batch
-        first = True
         with torch.no_grad():
             for i, data in enumerate(loop):
                 inputs, target = data
@@ -113,11 +110,6 @@ class EMModel(nn.Module):
                 loss = loss_fn(outputs, target)
                 mean_loss.append(loss.item())
 
-                if first:
-                    print("Prediction:", outputs[0].to("cpu").numpy())
-                    print("Target:", target[0].to("cpu").numpy())
-                    first = False
-
                 # save the number of correct predictions
                 correct, total = calculate_correct_predictions(outputs, target)
                 correct_predictions += correct
@@ -125,7 +117,6 @@ class EMModel(nn.Module):
 
             loop.set_postfix({"Loss": torch.tensor(mean_loss).mean().item()})
 
-        self.train(True)
         avg_loss = torch.tensor(mean_loss).mean().item()
         accuracy = correct_predictions / total_predictions
 

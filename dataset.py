@@ -18,23 +18,24 @@ class DatasetWithoutLeagues(Dataset):
                 use_existing_normalisation=use_existing_normalisation,
             )
 
+        self.data = self.dataset.drop(columns=["team_1_goals", "team_2_goals"]).values
+        self.data = np.array([[self.data[i : i + 52]] for i in range(0, len(self.data), 52)])
+        self.labels = self._create_labels()
+
+    def _create_labels(self):
+        team_1_goals = self.dataset["team_1_goals"].values
+        team_2_goals = self.dataset["team_2_goals"].values
+        labels = np.zeros((len(team_1_goals), 3))
+        labels[team_1_goals > team_2_goals, 0] = 1
+        labels[team_1_goals < team_2_goals, 1] = 1
+        labels[team_1_goals == team_2_goals, 2] = 1
+        return labels
+
     def __len__(self):
         return int(len(self.dataset) / 52)
 
     def __getitem__(self, idx):
-        team_1 = self.dataset.iloc[idx * 52].values[-2]
-        team_2 = self.dataset.iloc[idx * 52].values[-1]
-        # if team 1 wins, label is [1,0,0], if team 2 wins label is [0,1,0], if draw, label is [0,0,1]
-        if team_1 > team_2:
-            label = np.array([1, 0, 0])
-        elif team_1 < team_2:
-            label = np.array([0, 1, 0])
-        else:
-            label = np.array([0, 0, 1])
-
-        data = self.dataset.drop(columns=["team_1_goals", "team_2_goals"])
-        data = data.iloc[idx * 52 : (idx * 52) + 52].values
-        return np.array([data]), label
+        return self.data[idx], self.labels[idx]
 
 
 class DatasetWithLeagues(DatasetWithoutLeagues):

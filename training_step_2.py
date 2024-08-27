@@ -21,7 +21,12 @@ MODEL_PATH = Path("./trained_models/league_model")
 INITIAL_MODEL_PATH = Path("./trained_models/base_model")  # Path to the initial EMModel checkpoint
 
 ## Dataset properties ##
-TRAIN_DATASET_PATHS = ["data/nations_league_new.csv", "data/evaluation/wm18.csv", "data/evaluation/wm22.csv", "data/evaluation/em20.csv"]
+TRAIN_DATASET_PATHS = [
+    "data/nations_league_new.csv",
+    "data/evaluation/wm18.csv",
+    "data/evaluation/wm22.csv",
+    "data/evaluation/em20.csv",
+]
 VALIDATION_DATASET_PATH = ["data/evaluation/em24.csv"]
 AVERAGE_PERFORMANCE_PATHS = [
     (2020, "data/4_2020"),
@@ -31,7 +36,7 @@ AVERAGE_PERFORMANCE_PATHS = [
     (2018, "data/1_2018"),
     (2018, "data/5_2018"),
     (2020, "data/5_2020"),
-    (2022, "data/5_2022")
+    (2022, "data/5_2022"),
 ]
 MAPPINGS_FILE_PATH_TRAIN = "data/mappings_without_names_train.json"
 MAPPINGS_FILE_PATH_TEST = "data/mappings_without_names_test.json"
@@ -39,47 +44,65 @@ CATEGORICAL_COLUMNS = ["home/away", "player_name", "player_position", "league"]
 DROP_COLUMNS = ["game_won", "rating", "team", "id"]
 
 # Columns that are updated with the average performance data
-COLUMNS_TO_UPDATE = ['minutes_played', 'attempted_shots', 'shots_on_goal', 'goals', 'assists',
-                     'total_passes', 'key_passes', 'pass_completion', 'saves', 'tackles',
-                     'blocks', 'interceptions', 'conceded_goals', 'total_duels', 'won_duels',
-                     'attempted_dribbles', 'successful_dribbles', 'cards']
+COLUMNS_TO_UPDATE = [
+    "minutes_played",
+    "attempted_shots",
+    "shots_on_goal",
+    "goals",
+    "assists",
+    "total_passes",
+    "key_passes",
+    "pass_completion",
+    "saves",
+    "tackles",
+    "blocks",
+    "interceptions",
+    "conceded_goals",
+    "total_duels",
+    "won_duels",
+    "attempted_dribbles",
+    "successful_dribbles",
+    "cards",
+]
 
-'''
+"""
 Cross references the players in a given dataset with the avg_data dataset to find out which league they played in in a given season
 This information is then appended to the given dataset
-'''
+"""
+
+
 def add_league_to_dataset(dataset, avg_data):
     missing_players = 0
     # iterate over the dataset and add the league to each player
     for index, row in dataset.iterrows():
-        player_id = row['id']
-        season = row['season']
+        player_id = row["id"]
+        season = row["season"]
         # if the player can be matched, add his league
-        if player_id in avg_data[season]['player_id'].values:
-            league = avg_data[season].loc[avg_data[season]['player_id'] == player_id, 'league'].values[0]
-            dataset.loc[index, 'league'] = league
-        elif row['player_name'] == 'puffer_player':
+        if player_id in avg_data[season]["player_id"].values:
+            league = avg_data[season].loc[avg_data[season]["player_id"] == player_id, "league"].values[0]
+            dataset.loc[index, "league"] = league
+        elif row["player_name"] == "puffer_player":
             # separate league for puffer players
-            dataset.loc[index, 'league'] = 'puffer_league'
+            dataset.loc[index, "league"] = "puffer_league"
         else:
             # for missing players set league to unknown
             missing_players += 1
-            dataset.loc[index, 'league'] = 'unknown'
+            dataset.loc[index, "league"] = "unknown"
 
     return dataset
 
 
-'''
-For all the matches in a give dataset replace the player stats with their average performance in the last year
-(I merely moved this code snippet to a separate function so I could use it for multiple datasets, full credit for writing it to @Daniel)
-'''
 def replace_stats_with_avg(avg_data, data, columns_to_update):
+    """
+    For all the matches in a give dataset replace the player stats with their average performance in the last year
+    (I merely moved this code snippet to a separate function so I could use it for multiple datasets, full credit for writing it to @Daniel)
+    """
     # iterate the avg_data
     for season, avg_data_season in avg_data.items():
         player_no_data = []
 
         # get the season data from the evaluation data (i.e. all the data from the given season)
-        season_data = data.loc[data['season'] == season].copy()
+        season_data = data.loc[data["season"] == season].copy()
 
         # create a nested tqdm subloop for the season data
         loop = tqdm(season_data.iterrows(), desc="Replacing player stats", total=season_data.shape[0], leave=False)
@@ -87,16 +110,17 @@ def replace_stats_with_avg(avg_data, data, columns_to_update):
 
         # iterate over the season data from the dataset
         for index, row in loop:
-            player_id = row['id']
+            player_id = row["id"]
             # replace the stats with the average performance if the player is in the avg_data
-            if player_id in avg_data_season['player_id'].values:
+            if player_id in avg_data_season["player_id"].values:
                 for column in columns_to_update:
                     season_data[column] = season_data[column].astype(float)
-                    season_data.loc[index, column] = \
-                    avg_data_season.loc[avg_data_season['player_id'] == player_id, column].values[0]
+                    season_data.loc[index, column] = avg_data_season.loc[
+                        avg_data_season["player_id"] == player_id, column
+                    ].values[0]
             # if the player is a puffer player, set the league to puffer_league
             elif row["player_name"] == "puffer_player":
-                season_data.loc[index, 'league'] = "puffer_league"
+                season_data.loc[index, "league"] = "puffer_league"
             # if the player is not in the avg_data, add him to the player_no_data list
             else:
                 if player_id not in player_no_data:
@@ -105,7 +129,7 @@ def replace_stats_with_avg(avg_data, data, columns_to_update):
 
         # Replace the original data for the current season with the updated data
         for column in season_data.columns:
-            data.loc[data['season'] == season, column] = season_data[column].astype(data[column].dtype)
+            data.loc[data["season"] == season, column] = season_data[column].astype(data[column].dtype)
 
     return data
 
@@ -120,7 +144,7 @@ def get_data_loader():
     dataset_train = add_league_to_dataset(dataset_train, avg_data)
 
     # Replace the training stats with the average performance TODO: this is experimental, depending on the training performance we might want to change this
-    #dataset_train = replace_stats_with_avg(avg_data, dataset_train, COLUMNS_TO_UPDATE)
+    # dataset_train = replace_stats_with_avg(avg_data, dataset_train, COLUMNS_TO_UPDATE)
 
     # Preprocess the train data, i.e. map the categorical columns to integers, drop some columns, etc.
     dataset_train = preprocess_dataset(
@@ -135,7 +159,6 @@ def get_data_loader():
     dataset_train = DatasetWithLeagues(dataset_train, normalize=True)
     data_loader_train = DataLoader(dataset_train, batch_size=32, shuffle=True)
 
-
     # 2. Get the validation data from average performance and the given paths
     em_data = load_dataset(VALIDATION_DATASET_PATH)
     em_data = add_league_to_dataset(em_data, avg_data)
@@ -149,7 +172,7 @@ def get_data_loader():
         CATEGORICAL_COLUMNS,
         MAPPINGS_FILE_PATH_TEST,
         DROP_COLUMNS + ["team"],
-        remove_player_names=True
+        remove_player_names=True,
     )
 
     # Create a DataLoader for the validation data
@@ -210,17 +233,23 @@ def train(data_loader_train, data_loader_validation, num_leagues):
     save_accuracies_validation = {}
     save_losses_validation = {}
     for num_epoch in range(NUM_EPOCHS):
+        em_model.train()
         curr_train_loss, curr_train_accuracy = em_model.train_epoch(
             epoch_idx=num_epoch,
             dataloader=data_loader_train,
             loss_fn=em_model.get_loss(),
             optimizer=optimizer,
             device=DEVICE,
-            draw_threshold=draw_threshold
+            draw_threshold=draw_threshold,
         )
 
-        curr_eval_loss, curr_validation_accuracy = em_model.eval_model(dataloader=data_loader_validation, device=DEVICE, draw_threshold=draw_threshold)
-        print(f"\nValidation Loss after epoch {num_epoch + 1}: {curr_eval_loss} and accuracy: {curr_validation_accuracy}\n")
+        em_model.eval()
+        curr_eval_loss, curr_validation_accuracy = em_model.eval_model(
+            dataloader=data_loader_validation, device=DEVICE, draw_threshold=draw_threshold
+        )
+        print(
+            f"\nValidation Loss after epoch {num_epoch + 1}: {curr_eval_loss} and accuracy: {curr_validation_accuracy}\n"
+        )
 
         # save all the accuracies and losses for plotting
         save_accuracies_train[num_epoch] = curr_train_accuracy
@@ -233,17 +262,16 @@ def train(data_loader_train, data_loader_validation, num_leagues):
             em_model.save_model(optimizer, MODEL_PATH)
             best_eval_loss = curr_eval_loss
 
-
     # show the training and validation loss and accuracy
     plot_loss(save_losses_train, save_losses_validation)
     plot_accuracy(save_accuracies_train, save_accuracies_validation)
 
 
-'''
-Loads the average performance data from the given paths
-Returns a dictionary with the year as key and a dataframe with the average stat data per player as value 
-'''
 def load_avg_performance_data(paths):
+    """
+    Loads the average performance data from the given paths
+    Returns a dictionary with the year as key and a dataframe with the average stat data per player as value
+    """
     avg_data = {}
     for year, path in paths:
         dataframes = []
@@ -255,7 +283,7 @@ def load_avg_performance_data(paths):
                     try:
                         df = pd.read_csv(file_path)
                         # Remove duplicates in file
-                        df = df.drop_duplicates(subset=['player_name'], keep='first')
+                        df = df.drop_duplicates(subset=["player_name"], keep="first")
                         # Only append non-empty dataframes
                         if df.shape[0] > 0:
                             dataframes.append(df)
