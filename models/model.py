@@ -18,8 +18,8 @@ class EMModel(nn.Module):
             nn.ReLU(),
             nn.Linear(16, 8),
             nn.ReLU(),
-            nn.Linear(8, 2),
-            nn.Sigmoid(),
+            nn.Linear(8, 3),
+            nn.Softmax(dim=1),
         )
 
     def forward(self, x, weight_1=1, weight_2=1):
@@ -30,6 +30,7 @@ class EMModel(nn.Module):
         teams = torch.concat((x_1, x_2), dim=1)
         return self.gameClassifier(teams)
 
+    '''
     def custom_loss(self, outputs, targets, draw_threshold=0.05, mse_weight=0.7, outcome_weight=0.3):
         mse_loss = functional.mse_loss(outputs, targets, reduction='none')
 
@@ -49,45 +50,28 @@ class EMModel(nn.Module):
         combined_loss = mse_weight * mse_loss.mean() + outcome_weight * outcome_loss
 
         return combined_loss
-
+    '''
     def train_epoch(self, epoch_idx, dataloader, optimizer, device):
         loop = tqdm(dataloader)
         loop.set_description(f"EM Model - Training epoch {epoch_idx}")
         loss_fn = self.get_loss()
         mean_loss = []
+        first = True
+        correct_predictions = 0
+        total_predictions = 0
+
         for i, data in enumerate(loop):
             inputs, target = data
             inputs = inputs.float().to(device)
             target = target.float().to(device)
-
             outputs = self(inputs)
 
-            # TODO: possibility 1
-            '''
-            # compute difference between the two teams and give this to the loss function
-            output_diff = outputs[:, 0] - outputs[:, 1]
-            target_diff = target[:, 0] - target[:, 1]
+            if first:
+                print("Prediction:", outputs[0].to("cpu"))
+                print("Target:", target[0].to("cpu"))
+                first = False
 
-            loss = loss_fn(output_diff, target_diff)
-            
-            # TODO: possibility 2
-            # loss = loss_fn(outputs[:, 0], target[:, 0]) + loss_fn(outputs[:, 1], target[:, 1])
-
-            # TODO: possibility 3
-            # Get the prediction correctness tensor
-            result_tensor = calculate_correct_predictions(outputs, target, 0.05, return_tensor=True).to(device)
-
-            # Create a weight tensor (2 for incorrect predictions, 1 for correct ones)
-            weight_tensor = 3 - result_tensor  # This will be 2 for incorrect and 1 for correct predictions
-
-            # Calculate the element-wise loss
-            element_wise_loss = loss_fn(outputs, target)
-
-            # Apply the weights to the loss
-            loss = (element_wise_loss * weight_tensor.unsqueeze(1)).mean()
-            '''
-
-            loss = self.custom_loss(outputs, target)
+            loss = loss_fn(outputs, target)
 
             loss.backward()
             mean_loss.append(loss.item())
@@ -95,9 +79,15 @@ class EMModel(nn.Module):
             optimizer.step()
             optimizer.zero_grad()
 
+            # save the number of correct predictions
+            correct, total = calculate_correct_predictions(outputs, target)
+            correct_predictions += correct
+            total_predictions += total
+
             loop.set_postfix({"Loss": torch.tensor(mean_loss).mean().item()})
 
-        return torch.tensor(mean_loss).mean().item()
+        accuracy = correct_predictions / total_predictions
+        return torch.tensor(mean_loss).mean().item(), accuracy
 
     def eval_model(self, dataloader, device):
         loop = tqdm(dataloader)
@@ -119,21 +109,8 @@ class EMModel(nn.Module):
                 inputs = inputs.float().to(device)
                 target = target.float().to(device)
                 outputs = self(inputs)
-                # TODO: possibility 1
-                '''
-                # compute difference between the two teams and give this to the loss function
-                output_diff = outputs[:, 0] - outputs[:, 1]
-                target_diff = target[:, 0] - target[:, 1]
 
-                loss = loss_fn(output_diff, target_diff)
-                
-                # TODO: possibility 2
-                # Calculate loss
-                element_wise_loss = loss_fn(outputs, target)
-                loss = element_wise_loss.mean()
-                '''
-
-                loss = self.custom_loss(outputs, target)
+                loss = loss_fn(outputs, target)
                 mean_loss.append(loss.item())
 
                 if first:
@@ -142,7 +119,7 @@ class EMModel(nn.Module):
                     first = False
 
                 # save the number of correct predictions
-                correct, total = calculate_correct_predictions(outputs, target, 0.05)
+                correct, total = calculate_correct_predictions(outputs, target)
                 correct_predictions += correct
                 total_predictions += total
 
@@ -177,7 +154,7 @@ class EMModel(nn.Module):
             param_group["lr"] = lr
 
     def get_loss(self):
-        return nn.MSELoss(reduction='none')
+        return nn.CrossEntropyLoss()
 
 
 class TeamBlock(nn.Module):

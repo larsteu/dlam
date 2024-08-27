@@ -12,11 +12,11 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 ## Dataset properties ##
 TRAIN_DATASET_PATH = [
-    "./data/bundesliga_16-23.csv",
+    "./data/bundesliga_avg_data.csv",
     "./data/ligue1_16-23.csv",
     "./data/la_liga_16-23.csv",
     "./data/serie_a_16-23.csv",
-    "./data/temp.csv",
+    "./data/premier_league_avg_data.csv",
 ]
 TEST_DATASET_PATH = []
 MAPPINGS_FILE_PATH_TRAIN = "data/mappings_without_names_train_model1.json"
@@ -62,16 +62,12 @@ def train(args):
         train_dataset,
         batch_size=64,
         shuffle=True,
-        num_workers=4,
-        pin_memory=True
     )
 
     data_loader_val = DataLoader(
         val_dataset,
         batch_size=64,
         shuffle=False,  # No need to shuffle validation data
-        num_workers=4,
-        pin_memory=True
     )
 
     em_model = EMModel().to(DEVICE)
@@ -91,12 +87,14 @@ def train(args):
         print(f"Loaded pre-trained model. Initial evaluation loss: {best_eval_loss}")
 
     for num_epoch in range(args.epochs):
-        em_model.train_epoch(
+        curr_loss, curr_acc = em_model.train_epoch(
             epoch_idx=num_epoch,
             dataloader=data_loader_train,
             optimizer=optimizer,
             device=DEVICE,
         )
+
+        print(f"Epoch {num_epoch + 1}/{args.epochs}, Training Loss: {curr_loss}", f"Accuracy: {curr_acc}")
 
         curr_eval_loss, curr_eval_accuracy = em_model.eval_model(dataloader=data_loader_val, device=DEVICE)
         print(f"Epoch {num_epoch + 1}/{args.epochs}, Evaluation Loss: {curr_eval_loss}", f"Accuracy: {curr_eval_accuracy}")
