@@ -64,21 +64,24 @@ class DatasetWithLeagues(DatasetWithoutLeagues):
 
     def __init__(self, dataset: pd.DataFrame, normalize=False, use_existing_normalisation=False):
         # We store the leagues separately and remove them from the dataset
-        self.leagues: pd.DataFrame = dataset["league"]
+        leagues = dataset["league"]
         dataset = dataset.drop(columns="league")
 
         # Call the parent constructor (i.e. of DatasetWithoutLeagues)
         super().__init__(dataset, normalize, use_existing_normalisation)
 
         # Process the league names: map them to integers
-        self.leagues = self.leagues.map(lambda x: self.league_mapping.get(x, 16))
+        mapped_leagues = leagues.map(lambda x: self.league_mapping.get(x, 16))
+
+        # Create the league data array
+        self.league_data = np.array([mapped_leagues.iloc[i:i+52].values for i in range(0, len(mapped_leagues), 52)])
 
     def __getitem__(self, idx):
-        # Get data as we would normally from the DatasetWithoutLeagues class
+        # Get data and labels as we would normally from the DatasetWithoutLeagues class
         data, labels = super().__getitem__(idx)
 
-        # Get the league for this batch
-        league = self.leagues.iloc[idx * 52 : (idx * 52) + 52].values
+        # Get the league data for this batch
+        league = self.league_data[idx]
 
         # Return the data, league, and labels
         return data, league, labels
