@@ -55,6 +55,7 @@ class EMModelWithLeague(EMModel):
         # Multiply the team embeddings by the league weights
         league_weights_team_1 = self.leagueToScalar(league_ids[:, :26])
         league_weights_team_2 = self.leagueToScalar(league_ids[:, 26:])
+
         x_1 = x_1 * league_weights_team_1
         x_2 = x_2 * league_weights_team_2
 
@@ -62,29 +63,7 @@ class EMModelWithLeague(EMModel):
         teams = torch.cat((x_1, x_2), dim=1)
         return self.gameClassifier(teams)
 
-    def custom_loss(self, outputs, targets, draw_threshold=0.05, mse_weight=0.5, outcome_weight=0.5):
-        mse_loss = functional.mse_loss(outputs, targets, reduction="none")
-
-        # Calculate match outcome
-        pred_diff = outputs[:, 0] - outputs[:, 1]
-        true_diff = targets[:, 0] - targets[:, 1]
-
-        pred_outcome = torch.where(
-            torch.abs(pred_diff) < draw_threshold, torch.zeros_like(pred_diff), torch.sign(pred_diff)
-        )
-        true_outcome = torch.where(
-            torch.abs(true_diff) < draw_threshold, torch.zeros_like(true_diff), torch.sign(true_diff)
-        )
-
-        # Calculate outcome loss (use binary cross-entropy for 3-class problem)
-        outcome_loss = functional.cross_entropy(pred_outcome.unsqueeze(1), true_outcome.float().unsqueeze(1))
-
-        # Combine losses
-        combined_loss = mse_weight * mse_loss.mean() + outcome_weight * outcome_loss
-
-        return combined_loss
-
-    def train_epoch(self, epoch_idx, dataloader, loss_fn, optimizer, device, draw_threshold=0.05):
+    def train_epoch(self, epoch_idx, dataloader, loss_fn, optimizer, device):
         """
         Expects the model to be in training mode.
         """
@@ -103,27 +82,15 @@ class EMModelWithLeague(EMModel):
 
             # Forward pass, compute loss & backpropagate
             outputs = self(inputs, league_ids)
-            """
-            # Get the prediction correctness tensor
-            result_tensor = calculate_correct_predictions(outputs, target, draw_threshold, return_tensor=True)
 
-            # Create a weight tensor (2 for incorrect predictions, 1 for correct ones)
-            weight_tensor = 4 - result_tensor  # This will be 2 for incorrect and 1 for correct predictions
-
-            # Calculate the element-wise loss
-            element_wise_loss = nn.MSELoss(reduction='none')(outputs, target)
-
-            # Apply the weights to the loss
-            loss = (element_wise_loss * weight_tensor.unsqueeze(1)).mean()
-            """
-            loss = self.custom_loss(outputs, target, draw_threshold)
+            loss = loss_fn(outputs, target)
 
             loss.backward()
             optimizer.step()
             optimizer.zero_grad()
 
             # save the number of correct predictions
-            correct, total = calculate_correct_predictions(outputs, target, draw_threshold)
+            correct, total = calculate_correct_predictions(outputs, target)
             correct_predictions += correct
             total_predictions += total
 
@@ -136,7 +103,7 @@ class EMModelWithLeague(EMModel):
 
         return np.array(mean_loss).mean(), accuracy
 
-    def eval_model(self, dataloader, device, draw_threshold=0.05):
+    def eval_model(self, dataloader, device):
         """
         Expects the model to be in evaluation mode.
         """
@@ -144,8 +111,7 @@ class EMModelWithLeague(EMModel):
         total_loss = 0
         correct_predictions = 0
         total_predictions = 0
-        loss_fn = nn.MSELoss()
-        first = True
+        loss_fn = self.get_loss()
 
         with torch.no_grad():
             for inputs, league_ids, target in dataloader:
@@ -154,18 +120,13 @@ class EMModelWithLeague(EMModel):
                 target = target.float().to(device)
 
                 outputs = self(inputs, league_ids)
-                # loss = loss_fn(outputs[:, 0], target[:, 0]) + loss_fn(outputs[:, 1], target[:, 1])
-                loss = self.custom_loss(outputs, target, draw_threshold)
+
+                loss = loss_fn(outputs, target)
 
                 total_loss += loss.item()
 
-                if first:
-                    print("Prediction:", [f"{val:.2f}" for val in outputs[0].to("cpu").numpy()])
-                    print("Target:", target[0].to("cpu").numpy())
-                    first = False
-
                 # Calculate the number of correct predictions
-                correct, total = calculate_correct_predictions(outputs, target, draw_threshold)
+                correct, total = calculate_correct_predictions(outputs, target)
                 correct_predictions += correct
                 total_predictions += total
 

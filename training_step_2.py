@@ -23,11 +23,12 @@ INITIAL_MODEL_PATH = Path("./trained_models/base_model")  # Path to the initial 
 ## Dataset properties ##
 TRAIN_DATASET_PATHS = [
     "data/nations_league_new.csv",
+    "data/evaluation/em24.csv",
     "data/evaluation/wm18.csv",
     "data/evaluation/wm22.csv",
-    "data/evaluation/em20.csv",
 ]
-VALIDATION_DATASET_PATH = ["data/evaluation/em24.csv"]
+VALIDATION_DATASET_PATH = [
+    "data/evaluation/em20.csv",]
 AVERAGE_PERFORMANCE_PATHS = [
     (2020, "data/4_2020"),
     (2024, "data/4_2024"),
@@ -144,7 +145,7 @@ def get_data_loader():
     dataset_train = add_league_to_dataset(dataset_train, avg_data)
 
     # Replace the training stats with the average performance TODO: this is experimental, depending on the training performance we might want to change this
-    # dataset_train = replace_stats_with_avg(avg_data, dataset_train, COLUMNS_TO_UPDATE)
+    dataset_train = replace_stats_with_avg(avg_data, dataset_train, COLUMNS_TO_UPDATE)
 
     # Preprocess the train data, i.e. map the categorical columns to integers, drop some columns, etc.
     dataset_train = preprocess_dataset(
@@ -223,9 +224,6 @@ def train(data_loader_train, data_loader_validation, num_leagues):
 
     best_eval_loss = None
 
-    # TODO: pull this out of scope
-    draw_threshold = 0.05
-
     # Save the accuracies and losses for plotting with their respective epochs
     save_accuracies_train = {}
     save_losses_train = {}
@@ -240,12 +238,11 @@ def train(data_loader_train, data_loader_validation, num_leagues):
             loss_fn=em_model.get_loss(),
             optimizer=optimizer,
             device=DEVICE,
-            draw_threshold=draw_threshold,
         )
 
         em_model.eval()
         curr_eval_loss, curr_validation_accuracy = em_model.eval_model(
-            dataloader=data_loader_validation, device=DEVICE, draw_threshold=draw_threshold
+            dataloader=data_loader_validation, device=DEVICE,
         )
         print(
             f"\nValidation Loss after epoch {num_epoch + 1}: {curr_eval_loss} and accuracy: {curr_validation_accuracy}\n"

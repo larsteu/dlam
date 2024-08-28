@@ -14,10 +14,13 @@ class EMModel(nn.Module):
         self.gameClassifier = nn.Sequential(
             nn.Linear(2 * team_dim, 32),
             nn.ReLU(),
+            nn.Dropout(0.3),
             nn.Linear(32, 16),
             nn.ReLU(),
+            nn.Dropout(0.3),
             nn.Linear(16, 8),
             nn.ReLU(),
+            nn.Dropout(0.3),
             nn.Linear(8, 3),
             nn.Softmax(dim=1),
         )
@@ -29,28 +32,6 @@ class EMModel(nn.Module):
         x_2 = self.teamClassifier(x_2) * weight_2
         teams = torch.concat((x_1, x_2), dim=1)
         return self.gameClassifier(teams)
-
-    """
-    def custom_loss(self, outputs, targets, draw_threshold=0.05, mse_weight=0.7, outcome_weight=0.3):
-        mse_loss = functional.mse_loss(outputs, targets, reduction='none')
-
-        # Calculate match outcome
-        pred_diff = outputs[:, 0] - outputs[:, 1]
-        true_diff = targets[:, 0] - targets[:, 1]
-
-        pred_outcome = torch.where(torch.abs(pred_diff) < draw_threshold, torch.zeros_like(pred_diff),
-                                   torch.sign(pred_diff))
-        true_outcome = torch.where(torch.abs(true_diff) < draw_threshold, torch.zeros_like(true_diff),
-                                   torch.sign(true_diff))
-
-        # Calculate outcome loss (use binary cross-entropy for 3-class problem)
-        outcome_loss = functional.cross_entropy(pred_outcome.unsqueeze(1), true_outcome.float().unsqueeze(1))
-
-        # Combine losses
-        combined_loss = mse_weight * mse_loss.mean() + outcome_weight * outcome_loss
-
-        return combined_loss
-    """
 
     def train_epoch(self, epoch_idx, dataloader, optimizer, device):
         """

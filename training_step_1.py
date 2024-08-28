@@ -13,9 +13,9 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 ## Dataset properties ##
 TRAIN_DATASET_PATH = [
     "./data/bundesliga_avg_data.csv",
-    "./data/ligue1_16-23.csv",
-    "./data/la_liga_16-23.csv",
-    "./data/serie_a_16-23.csv",
+    #"./data/ligue1_16-23.csv",
+    "./data/la_liga_avg.csv",
+    #"./data/serie_a_16-23.csv",
     "./data/premier_league_avg_data.csv",
 ]
 TEST_DATASET_PATH = []
