@@ -14,15 +14,12 @@ class EMModel(nn.Module):
         self.gameClassifier = nn.Sequential(
             nn.Linear(2 * team_dim, 32),
             nn.ReLU(),
-            nn.Dropout(0.3),
             nn.Linear(32, 16),
             nn.ReLU(),
-            nn.Dropout(0.3),
             nn.Linear(16, 8),
             nn.ReLU(),
-            nn.Dropout(0.3),
             nn.Linear(8, 3),
-            nn.Softmax(dim=1),
+            nn.Softmax(dim=1)
         )
 
     def forward(self, x, weight_1=1, weight_2=1):
@@ -31,7 +28,9 @@ class EMModel(nn.Module):
         x_1 = self.teamClassifier(x_1) * weight_1
         x_2 = self.teamClassifier(x_2) * weight_2
         teams = torch.concat((x_1, x_2), dim=1)
-        return self.gameClassifier(teams)
+        x_3 = self.gameClassifier(teams)
+
+        return x_3
 
     def train_epoch(self, epoch_idx, dataloader, optimizer, device):
         """
@@ -47,7 +46,7 @@ class EMModel(nn.Module):
         for i, data in enumerate(loop):
             inputs, target = data
             inputs = inputs.float().to(device)
-            target = target.float().to(device)
+            target = target.long().to(device)
             outputs = self(inputs)
 
             loss = loss_fn(outputs, target)
@@ -81,14 +80,17 @@ class EMModel(nn.Module):
         correct_predictions = 0
         total_predictions = 0
 
+        self.eval()
+
         with torch.no_grad():
             for i, data in enumerate(loop):
                 inputs, target = data
                 inputs = inputs.float().to(device)
-                target = target.float().to(device)
-                outputs = self(inputs)
+                target = target.long().to(device)
+                with torch.no_grad():
+                    outputs = self(inputs)
+                    loss = loss_fn(outputs, target)
 
-                loss = loss_fn(outputs, target)
                 mean_loss.append(loss.item())
 
                 # save the number of correct predictions
@@ -101,6 +103,7 @@ class EMModel(nn.Module):
         avg_loss = torch.tensor(mean_loss).mean().item()
         accuracy = correct_predictions / total_predictions
 
+        self.train()
         return avg_loss, accuracy
 
     def save_model(self, optimizer, path: Path):
@@ -130,40 +133,24 @@ class EMModel(nn.Module):
 
 
 class TeamBlock(nn.Module):
-    def __init__(self, features=16, output=32):
+    def __init__(self):
         super().__init__()
         self.conv_block = nn.Sequential(
-            nn.Conv2d(1, features, kernel_size=(1, 4), stride=(1, 2)),
+            nn.Linear(572, 1024),
             nn.ReLU(),
-            nn.BatchNorm2d(features),
-            nn.Conv2d(features, 2 * features, kernel_size=(1, 4), stride=(1, 2)),
+            nn.Linear(1024, 512),
             nn.ReLU(),
-            nn.BatchNorm2d(2 * features),
-            nn.Conv2d(2 * features, 4 * features, kernel_size=(1, 4), stride=(1, 2)),
+            nn.Linear(512, 256),
             nn.ReLU(),
-            nn.BatchNorm2d(4 * features),
-            nn.Conv2d(4 * features, 8 * features, kernel_size=(4, 1), stride=(2, 1)),
+            nn.Linear(256, 128),
             nn.ReLU(),
-            nn.BatchNorm2d(8 * features),
-            nn.Conv2d(8 * features, 16 * features, kernel_size=(4, 1), stride=(2, 1)),
+            nn.Linear(128, 64),
             nn.ReLU(),
-            nn.BatchNorm2d(16 * features),
-            nn.Conv2d(16 * features, 32 * features, kernel_size=(4, 1), stride=(2, 1)),
-            nn.ReLU(),
-            nn.BatchNorm2d(32 * features),
-        )
-        self.fc_block = nn.Sequential(
-            nn.Linear(32 * features, 16 * features),
-            nn.ReLU(),
-            nn.Linear(16 * features, 8 * features),
-            nn.ReLU(),
-            nn.Linear(8 * features, 4 * features),
-            nn.ReLU(),
-            nn.Linear(4 * features, output),
-            nn.ReLU(),
+            nn.Linear(64, 32)
         )
 
+
     def forward(self, x):
-        x_1 = self.conv_block(x)
-        x_2 = x_1.view(x_1.shape[0], -1)
-        return self.fc_block(x_2)
+        x_1 = x.view(x.shape[0], -1)
+        x_2 = self.conv_block(x_1)
+        return x_2
