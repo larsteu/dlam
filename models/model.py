@@ -46,7 +46,7 @@ class EMModel(nn.Module):
         for i, data in enumerate(loop):
             inputs, target = data
             inputs = inputs.float().to(device)
-            target = target.long().to(device)
+            target = target.float().to(device)
             outputs = self(inputs)
 
             loss = loss_fn(outputs, target)
@@ -86,7 +86,7 @@ class EMModel(nn.Module):
             for i, data in enumerate(loop):
                 inputs, target = data
                 inputs = inputs.float().to(device)
-                target = target.long().to(device)
+                target = target.float().to(device)
                 with torch.no_grad():
                     outputs = self(inputs)
                     loss = loss_fn(outputs, target)

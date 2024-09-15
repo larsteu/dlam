@@ -1,112 +1,89 @@
-from distutils.sysconfig import customize_compiler
-from functools import total_ordering
-
 import torch
 import torch.nn as nn
-from torch import Tensor
-from models.model import EMModel
 from tqdm import tqdm
-import numpy as np
-from utils import calculate_correct_predictions
-from torch.nn import functional
+from models.model import EMModel
 
 
-class LeagueToScalar(nn.Module):
-    """
-    Produces a single scalar value for representing the team strength depending on the league of the players.
-    This scalar is determined by 1) embedding the league IDs and 2) passing the embeddings through a linear layer.
-
-    The LeagueToScalar class reduces the league embeddings to a single scalar value per team, which is then used to scale the entire team embedding tensor.
-    This approach might not capture the individual contributions of players from different leagues correctly.
-    However, because we only scale the data after the team embeddings have been passed through the team classifier, we do not need to train the teamClassifier but we can freeze it.
-    This is necessary because of the low quantity of data available for training step 2: We need to freeze as many parameters as possible.
-    """
-
-    def __init__(self, num_leagues, num_players) -> None:
+class LeagueEmbedding(nn.Module):
+    def __init__(self, num_leagues, embedding_dim=4):
         super().__init__()
+        self.num_leagues = num_leagues
+        self.embedding = nn.Embedding(num_leagues + 1, embedding_dim)
+        self.fc = nn.Sequential(
+            nn.Linear(embedding_dim, 8),
+            nn.ReLU(),
+            nn.Linear(8, 1),
+            nn.Sigmoid()
+        )
 
-        # 1. Have an embedding layer
-        self.embedding = nn.Embedding(num_leagues, 1)
-
-        # 2. Have a linear layer
-        self.linear = nn.Linear(num_players, 1)
-
-    def forward(self, x: Tensor) -> Tensor:
-        # x is a tensor of shape (batch_size, num_players)
-        x = self.embedding(x)  # shape: (batch_size, num_players, 1)
-        x = x.squeeze(-1)  # shape: (batch_size, num_players)
-        x = self.linear(x)  # shape: (batch_size, 1)
-        return x
+    def forward(self, league_ids):
+        league_ids = torch.clamp(league_ids, 0, self.num_leagues)
+        embedded = self.embedding(league_ids)
+        weights = self.fc(embedded)
+        return weights.squeeze(-1)
 
 
 class EMModelWithLeague(EMModel):
     def __init__(self, num_leagues, team_dim=32):
         super().__init__(team_dim)
-        self.leagueToScalar = LeagueToScalar(num_leagues, 26)
+        self.league_embedding = LeagueEmbedding(num_leagues)
+        self.dropout = nn.Dropout(0.2)
 
     def forward(self, x, league_ids):
-        # x is a tensor of shape (batch_size, team_dim, 52)
-        # league_ids is a tensor of shape (batch_size, 52)
-        x_1 = x[:, :, :26]
-        x_2 = x[:, :, 26:]
+        league_weights = self.league_embedding(league_ids)
+
+        x_1 = x[:, :, :26].float()
+        x_2 = x[:, :, 26:].float()
+
+        league_weights_1 = league_weights[:, :26].unsqueeze(1).unsqueeze(-1)
+        league_weights_2 = league_weights[:, 26:].unsqueeze(1).unsqueeze(-1)
+
+        x_1 = x_1 * league_weights_1
+        x_2 = x_2 * league_weights_2
+
         x_1 = self.teamClassifier(x_1)
         x_2 = self.teamClassifier(x_2)
 
-        # Multiply the team embeddings by the league weights
-        league_weights_team_1 = self.leagueToScalar(league_ids[:, :26])
-        league_weights_team_2 = self.leagueToScalar(league_ids[:, 26:])
+        x_1 = self.dropout(x_1)
+        x_2 = self.dropout(x_2)
 
-        x_1 = x_1 * league_weights_team_1
-        x_2 = x_2 * league_weights_team_2
-
-        # Concatenate the team embeddings & pass through the game classifier
         teams = torch.cat((x_1, x_2), dim=1)
-        return self.gameClassifier(teams)
+        teams = teams.view(teams.size(0), -1)
+
+        output = self.gameClassifier(teams)
+
+        return output
 
     def train_epoch(self, epoch_idx, dataloader, loss_fn, optimizer, device):
-        """
-        Expects the model to be in training mode.
-        """
-        tqdm_dataloader = tqdm(dataloader)
-        tqdm_dataloader.set_description(f"EM Model with League - Training epoch {epoch_idx}")
-
+        self.train()
+        total_loss = 0
         correct_predictions = 0
         total_predictions = 0
-        mean_loss = []
 
-        for inputs, league_ids, target in tqdm_dataloader:
-            # Move data to device
-            inputs = inputs.float().to(device)
-            league_ids = league_ids.long().to(device)
-            target = target.float().to(device)
+        for inputs, league_ids, targets in dataloader:
+            inputs, league_ids, targets = inputs.to(device), league_ids.to(device), targets.to(device)
 
-            # Forward pass, compute loss & backpropagate
+            optimizer.zero_grad()
             outputs = self(inputs, league_ids)
-
-            loss = loss_fn(outputs, target)
+            loss = loss_fn(outputs, targets)
 
             loss.backward()
+            torch.nn.utils.clip_grad_norm_(self.parameters(), max_norm=1.0)
             optimizer.step()
-            optimizer.zero_grad()
 
-            # save the number of correct predictions
-            correct, total = calculate_correct_predictions(outputs, target)
-            correct_predictions += correct
-            total_predictions += total
+            total_loss += loss.item()
 
-            # Logging
-            mean_loss.append(loss.to("cpu").item())
-            tqdm_dataloader.set_postfix({"Loss": np.array(mean_loss).mean()})
+            _, predicted = torch.max(outputs.data, 1)
+            _, true_labels = torch.max(targets, 1)
+            correct_predictions += (predicted == true_labels).sum().item()
+            total_predictions += targets.size(0)
 
-        # calculate the accuracy over the entire dataset
+        avg_loss = total_loss / len(dataloader)
         accuracy = correct_predictions / total_predictions
 
-        return np.array(mean_loss).mean(), accuracy
+        return avg_loss, accuracy
 
     def eval_model(self, dataloader, device):
-        """
-        Expects the model to be in evaluation mode.
-        """
         self.eval()
         total_loss = 0
         correct_predictions = 0
@@ -114,32 +91,32 @@ class EMModelWithLeague(EMModel):
         loss_fn = self.get_loss()
 
         with torch.no_grad():
-            for inputs, league_ids, target in dataloader:
-                inputs = inputs.float().to(device)
-                league_ids = league_ids.long().to(device)
-                target = target.float().to(device)
+            for inputs, league_ids, targets in dataloader:
+                inputs, league_ids, targets = inputs.to(device), league_ids.to(device), targets.to(device)
 
                 outputs = self(inputs, league_ids)
-
-                loss = loss_fn(outputs, target)
+                loss = loss_fn(outputs, targets)
 
                 total_loss += loss.item()
 
-                # Calculate the number of correct predictions
-                correct, total = calculate_correct_predictions(outputs, target)
-                correct_predictions += correct
-                total_predictions += total
+                _, predicted = torch.max(outputs.data, 1)
+                _, true_labels = torch.max(targets, 1)
+                correct_predictions += (predicted == true_labels).sum().item()
+                total_predictions += targets.size(0)
 
-        # calculate the accuracy and loss over the entire dataset
+        avg_loss = total_loss / len(dataloader)
         accuracy = correct_predictions / total_predictions
-        final_loss = total_loss / len(dataloader)
 
-        return final_loss, accuracy
+        return avg_loss, accuracy
 
-    def freeze_team_classifier(self):
+    def freeze_base_model(self):
         for param in self.teamClassifier.parameters():
             param.requires_grad = False
+        #for param in self.gameClassifier.parameters():
+        #    param.requires_grad = False
 
-    def unfreeze_team_classifier(self):
+    def unfreeze_base_model(self):
         for param in self.teamClassifier.parameters():
             param.requires_grad = True
+        #for param in self.gameClassifier.parameters():
+        #    param.requires_grad = True
