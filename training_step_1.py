@@ -5,18 +5,16 @@ from models.model import EMModel
 from dataset import DatasetWithoutLeagues
 from utils import load_dataset, preprocess_dataset, plot_loss, plot_accuracy
 from pathlib import Path
-from sklearn.model_selection import train_test_split
-from torch.utils.data import Subset
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 ## Dataset properties ##
 TRAIN_DATASET_PATH = [
-    "./data/bundesliga_avg_data.csv",
-    #"./data/ligue1_16-23.csv",
-    "./data/la_liga_avg.csv",
-    #"./data/serie_a_16-23.csv",
-    "./data/premier_league_avg_data.csv",
+    "./data/bundesliga_16-23.csv",
+    "./data/ligue1_16-23.csv",
+    "./data/la_liga_16-23.csv",
+    "./data/serie_a_16-23.csv",
+    "./data/premier_league_16-23.csv",
 ]
 TEST_DATASET_PATH = []
 MAPPINGS_FILE_PATH_TRAIN = "data/mappings_without_names_train_model1.json"
@@ -24,12 +22,12 @@ MAPPINGS_FILE_PATH_TEST = "data/mappings_without_names_test_model1.json"
 CATEGORICAL_COLUMNS = ["home/away", "player_name", "player_position"]
 DROP_COLUMNS = ["game_won", "rating"]
 
-WORKERS = 8
+WORKERS = 0
 
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Train the base EM Model")
-    parser.add_argument("--epochs", type=int, default=20, help="Number of epochs to train")
+    parser.add_argument("--epochs", type=int, default=50, help="Number of epochs to train")
     parser.add_argument("--lr", type=float, default=1e-4, help="Learning rate")
     parser.add_argument("--model_path", type=str, default="./trained_models/base_model", help="Path to save/load the model")  # fmt: skip
     parser.add_argument("--load_model", action="store_true", help="Load a pre-trained model")
@@ -59,15 +57,17 @@ def train(args):
     # Use random_split to create the split
     train_dataset, val_dataset = torch.utils.data.random_split(full_dataset, [train_size, val_size])
 
-    batch_size = 64  # or higher, depending on your GPU memory
+    batch_size = 128  # or higher, depending on your GPU memory
+
+    #train_dataset = full_dataset
+    #val_dataset = full_dataset
 
     # Create DataLoaders with more workers and pin_memory
     data_loader_train = DataLoader(
         train_dataset,
         batch_size=batch_size,
-        shuffle=True,
+        shuffle=False,
         num_workers=WORKERS,
-        pin_memory=True,
     )
 
     data_loader_val = DataLoader(
@@ -75,7 +75,6 @@ def train(args):
         batch_size=batch_size,
         shuffle=False,
         num_workers=WORKERS,
-        pin_memory=True,
     )
 
     em_model = EMModel().to(DEVICE)
@@ -94,8 +93,6 @@ def train(args):
         print(f"Loaded pre-trained model. Initial evaluation accuracy: {best_eval_accuracy}")
 
     for num_epoch in range(args.epochs):
-        em_model.train()
-
         curr_loss, curr_acc = em_model.train_epoch(
             epoch_idx=num_epoch,
             dataloader=data_loader_train,

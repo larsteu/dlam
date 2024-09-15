@@ -176,13 +176,13 @@ def calculate_correct_predictions(outputs, target, return_tensor=False):
     for i in range(len(outputs)):
         # check which output has the highest value
         if outputs[i][0] > outputs[i][1] and outputs[i][0] > outputs[i][2]:
-            if target[i][0] == 1:
+            if target[i] == 0:
                 correct_predictions += 1
         elif outputs[i][1] > outputs[i][0] and outputs[i][1] > outputs[i][2]:
-            if target[i][1] == 1:
+            if target[i] == 1:
                 correct_predictions += 1
         elif outputs[i][2] > outputs[i][0] and outputs[i][2] > outputs[i][1]:
-            if target[i][2] == 1:
+            if target[i] == 2:
                 correct_predictions += 1
 
     total_predictions = len(outputs)

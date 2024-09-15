@@ -25,10 +25,11 @@ class DatasetWithoutLeagues(Dataset):
     def _create_labels(self):
         team_1_goals = self.dataset["team_1_goals"].values
         team_2_goals = self.dataset["team_2_goals"].values
-        labels = np.zeros((len(team_1_goals), 3))
-        labels[team_1_goals > team_2_goals, 0] = 1
-        labels[team_1_goals < team_2_goals, 1] = 1
-        labels[team_1_goals == team_2_goals, 2] = 1
+        labels = np.zeros((len(team_1_goals)))
+        labels[team_1_goals > team_2_goals] = 0
+        labels[team_1_goals < team_2_goals] = 1
+        labels[team_1_goals == team_2_goals] = 2
+        labels = labels[::52]
         return labels
 
     def __len__(self):
