@@ -3,12 +3,14 @@ import torch
 from torch.utils.data import DataLoader
 from models.model import EMModel
 from dataset import DatasetWithoutLeagues
+from training_step_2 import TRAIN_DATASET_PATHS
 from utils import load_dataset, preprocess_dataset, plot_loss, plot_accuracy
 from pathlib import Path
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 ## Dataset properties ##
+
 TRAIN_DATASET_PATH = [
     "./data/bundesliga_16-23.csv",
     "./data/ligue1_16-23.csv",
@@ -16,13 +18,23 @@ TRAIN_DATASET_PATH = [
     "./data/serie_a_16-23.csv",
     "./data/premier_league_16-23.csv",
 ]
+'''
+TRAIN_DATASET_PATH = [
+    "./data/bundesliga_avg_data.csv",
+    "./data/bundesliga_16-23.csv",
+    "./data/ligue1_16-23.csv",
+    "./data/la_liga_avg.csv",
+    "./data/serie_a_avg.csv",
+    "./data/premier_league_avg_data.csv",
+]
+'''
 TEST_DATASET_PATH = []
 MAPPINGS_FILE_PATH_TRAIN = "data/mappings_without_names_train_model1.json"
 MAPPINGS_FILE_PATH_TEST = "data/mappings_without_names_test_model1.json"
 CATEGORICAL_COLUMNS = ["home/away", "player_name", "player_position"]
 DROP_COLUMNS = ["game_won", "rating"]
 
-WORKERS = 0
+WORKERS = 8
 
 
 def parse_args():
@@ -68,6 +80,7 @@ def train(args):
         batch_size=batch_size,
         shuffle=False,
         num_workers=WORKERS,
+        pin_memory=True,
     )
 
     data_loader_val = DataLoader(
@@ -86,6 +99,8 @@ def train(args):
     # Save the accuracies and losses for plotting with their respective epochs
     save_accuracies_eval = {}
     save_losses_eval = {}
+    save_accuracies_train = {}
+    save_losses_train = {}
 
     if args.load_model and model_path.exists():
         em_model.load_model(optimizer, args.lr, model_path)
@@ -93,12 +108,17 @@ def train(args):
         print(f"Loaded pre-trained model. Initial evaluation accuracy: {best_eval_accuracy}")
 
     for num_epoch in range(args.epochs):
+        em_model.train()
+
         curr_loss, curr_acc = em_model.train_epoch(
             epoch_idx=num_epoch,
             dataloader=data_loader_train,
             optimizer=optimizer,
             device=DEVICE,
         )
+
+        save_accuracies_train[num_epoch] = curr_acc
+        save_losses_train[num_epoch] = curr_loss
 
         print(f"Epoch {num_epoch + 1}/{args.epochs}, Training Loss: {curr_loss}", f"Accuracy: {curr_acc}")
 
@@ -118,8 +138,8 @@ def train(args):
             best_eval_accuracy = curr_eval_accuracy
             print(f"Model saved. New best evaluation accuracy: {best_eval_accuracy}")
 
-    plot_loss(None, save_losses_eval, title="Loss")
-    plot_accuracy(None, save_accuracies_eval, title="Accuracy")
+    plot_loss(save_losses_train, save_losses_eval, title="Loss")
+    plot_accuracy(save_accuracies_train, save_accuracies_eval, title="Accuracy")
     print(f"Training completed. Final best evaluation accuracy: {best_eval_accuracy}")
 
 

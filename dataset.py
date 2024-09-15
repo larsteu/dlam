@@ -10,6 +10,7 @@ class DatasetWithoutLeagues(Dataset):
         self.normalize = normalize
         self.dataset["team_1_goals"] = self.dataset["game_result"].map(lambda x: int(x.split(sep="-")[0]))
         self.dataset["team_2_goals"] = self.dataset["game_result"].map(lambda x: int(x.split(sep="-")[1]))
+        self.labels = self._create_labels()
         self.dataset = dataset.drop(columns="game_result")
         if self.normalize:
             self.dataset = normalize_dataset(
@@ -20,16 +21,22 @@ class DatasetWithoutLeagues(Dataset):
 
         self.data = self.dataset.drop(columns=["team_1_goals", "team_2_goals"]).values
         self.data = np.array([[self.data[i : i + 52]] for i in range(0, len(self.data), 52)])
-        self.labels = self._create_labels()
 
     def _create_labels(self):
         team_1_goals = self.dataset["team_1_goals"].values
         team_2_goals = self.dataset["team_2_goals"].values
-        labels = np.zeros((len(team_1_goals)))
-        labels[team_1_goals > team_2_goals] = 0
-        labels[team_1_goals < team_2_goals] = 1
-        labels[team_1_goals == team_2_goals] = 2
-        labels = labels[::52]
+        # create labels with size (n, 3) where n is the number of games (n = len(team_1_goals) / 52)
+        n: int = len(team_1_goals) // 52
+        labels: [float] = np.zeros((n, 3))
+        curr_match = 0
+        for i in range(0, len(team_1_goals), 52):
+            if team_1_goals[i] > team_2_goals[i]:
+                labels[curr_match] = [1, 0, 0]
+            elif team_1_goals[i] < team_2_goals[i]:
+                labels[curr_match] = [0, 0, 1]
+            else:
+                labels[curr_match] = [0, 1, 0]
+            curr_match += 1
         return labels
 
     def __len__(self):
@@ -40,28 +47,6 @@ class DatasetWithoutLeagues(Dataset):
 
 
 class DatasetWithLeagues(DatasetWithoutLeagues):
-    league_mapping = {
-        "Bundesliga": 0,
-        "Premier League": 1,
-        "Serie A": 2,
-        "La Liga": 3,
-        "Primera División": 3,
-        "Ligue 1": 4,
-        "Eredivisie": 5,
-        "Süper Lig": 6,
-        "Championship": 7,
-        "Super League": 8,
-        "Czech Liga": 9,
-        "Fortuna Liga": 9,
-        "Jupiler Pro League": 10,
-        "Pro League": 10,
-        "1. Division": 11,
-        "Ekstraklasa": 12,
-        "Premiership": 13,
-        "Major League Soccer": 14,
-        "Primeira Liga": 15,
-        "Sammelkiste": 16,
-    }
 
     def __init__(self, dataset: pd.DataFrame, normalize=False, use_existing_normalisation=False):
         # We store the leagues separately and remove them from the dataset
@@ -71,11 +56,9 @@ class DatasetWithLeagues(DatasetWithoutLeagues):
         # Call the parent constructor (i.e. of DatasetWithoutLeagues)
         super().__init__(dataset, normalize, use_existing_normalisation)
 
-        # Process the league names: map them to integers
-        mapped_leagues = leagues.map(lambda x: self.league_mapping.get(x, 16))
-
         # Create the league data array
-        self.league_data = np.array([mapped_leagues.iloc[i:i+52].values for i in range(0, len(mapped_leagues), 52)])
+        self.league_data = np.array([leagues.iloc[i:i+52].values for i in range(0, len(leagues), 52)])
+
 
     def __getitem__(self, idx):
         # Get data and labels as we would normally from the DatasetWithoutLeagues class

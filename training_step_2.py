@@ -1,3 +1,4 @@
+import json
 import os.path
 
 import pandas as pd
@@ -12,7 +13,7 @@ from tqdm import tqdm
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 ## Model settings ##
-NUM_EPOCHS = 64
+NUM_EPOCHS = 2048
 LEARNING_RATE = 1e-4
 
 LOAD_MODEL = False
@@ -20,15 +21,20 @@ MODEL_PATH = Path("./trained_models/league_model")
 
 INITIAL_MODEL_PATH = Path("./trained_models/base_model")  # Path to the initial EMModel checkpoint
 
+# New constants for saved data
+PREPROCESSED_TRAIN_DATA_PATH = "data/preprocessed_train_data.csv"
+PREPROCESSED_VALIDATION_DATA_PATH = "data/preprocessed_validation_data.csv"
+
 ## Dataset properties ##
 TRAIN_DATASET_PATHS = [
     "data/nations_league_new.csv",
-    "data/evaluation/em24.csv",
+    "data/evaluation/em20.csv",
     "data/evaluation/wm18.csv",
     "data/evaluation/wm22.csv",
 ]
 VALIDATION_DATASET_PATH = [
-    "data/evaluation/em20.csv",]
+    "data/evaluation/em24.csv",
+]
 AVERAGE_PERFORMANCE_PATHS = [
     (2020, "data/4_2020"),
     (2024, "data/4_2024"),
@@ -41,8 +47,8 @@ AVERAGE_PERFORMANCE_PATHS = [
 ]
 MAPPINGS_FILE_PATH_TRAIN = "data/mappings_without_names_train.json"
 MAPPINGS_FILE_PATH_TEST = "data/mappings_without_names_test.json"
-CATEGORICAL_COLUMNS = ["home/away", "player_name", "player_position", "league"]
-DROP_COLUMNS = ["game_won", "rating", "team", "id"]
+CATEGORICAL_COLUMNS = ["home/away", "player_name", "player_position"]
+DROP_COLUMNS = ["game_won", "rating", "team", "id", "season"]
 
 # Columns that are updated with the average performance data
 COLUMNS_TO_UPDATE = [
@@ -70,8 +76,6 @@ COLUMNS_TO_UPDATE = [
 Cross references the players in a given dataset with the avg_data dataset to find out which league they played in in a given season
 This information is then appended to the given dataset
 """
-
-
 def add_league_to_dataset(dataset, avg_data):
     missing_players = 0
     # iterate over the dataset and add the league to each player
@@ -135,19 +139,87 @@ def replace_stats_with_avg(avg_data, data, columns_to_update):
     return data
 
 
-def get_data_loader():
-    # 1. Get the train data from the paths
-    dataset_train = load_dataset(TRAIN_DATASET_PATHS)
+def save_preprocessed_data(data, file_path):
+    data.to_csv(file_path, index=False)
+    print(f"Saved preprocessed data to {file_path}")
 
+
+def load_preprocessed_data(file_path):
+    return pd.read_csv(file_path)
+
+
+def preprocess_or_load_data(dataset_paths, avg_data, columns_to_update, output_path):
+    if os.path.exists(output_path):
+        print(f"Loading preprocessed data from {output_path}")
+        return load_preprocessed_data(output_path)
+
+    print(f"Preprocessing data for {output_path}")
+    dataset = load_dataset(dataset_paths)
+    dataset = add_league_to_dataset(dataset, avg_data)
+    dataset = replace_stats_with_avg(avg_data, dataset, columns_to_update)
+    return dataset
+
+
+
+def get_leagues_mapping(data):
+    leagues = data["league"]
+
+    # process them by removing all dots, commas and spaces and make them lowercase
+    leagues = [league.replace(".", "").replace(",", "").replace(" ", "").lower() for league in leagues]
+
+    unique_leagues = set(leagues)
+
+    # iterate over the unique leagues and create a mapping
+    league_mapping = {}
+    for idx, league in enumerate(unique_leagues):
+        league_mapping[league] = leagues.count(league)
+
+    # sort the mapping by the number of occurences
+    league_mapping = dict(sorted(league_mapping.items(), key=lambda item: item[1], reverse=True))
+
+    return league_mapping
+
+def get_data_loader():
     # Load the average performance data for all the relevant seasons
     avg_data = load_avg_performance_data(AVERAGE_PERFORMANCE_PATHS)
-    # Add the league to all players in the train dataset
-    dataset_train = add_league_to_dataset(dataset_train, avg_data)
 
-    # Replace the training stats with the average performance TODO: this is experimental, depending on the training performance we might want to change this
-    dataset_train = replace_stats_with_avg(avg_data, dataset_train, COLUMNS_TO_UPDATE)
+    # Preprocess and save/load training data
+    dataset_train = preprocess_or_load_data(TRAIN_DATASET_PATHS, avg_data, COLUMNS_TO_UPDATE,
+                                             PREPROCESSED_TRAIN_DATA_PATH)
 
-    # Preprocess the train data, i.e. map the categorical columns to integers, drop some columns, etc.
+    # Preprocess and save/load validation data
+    validation_data = preprocess_or_load_data(VALIDATION_DATASET_PATH, avg_data, COLUMNS_TO_UPDATE,
+                                               PREPROCESSED_VALIDATION_DATA_PATH)
+
+    num_mapped_leagues = 35 # when you change this, you have to re-run the preprocessing
+    if not (os.path.exists(PREPROCESSED_TRAIN_DATA_PATH) and os.path.exists(PREPROCESSED_VALIDATION_DATA_PATH)):
+        # get the combined league mapping
+        league_mapping = get_leagues_mapping(dataset_train)
+        league_mapping.update(get_leagues_mapping(validation_data))
+
+        # sort the league mapping by the number of occurences
+        league_mapping = dict(sorted(league_mapping.items(), key=lambda item: item[1], reverse=True))
+
+        # go over the league mapping and assign an index to the top N leagues (rest will be assigned to "other")
+        for idx, league in enumerate(list(league_mapping.keys())):
+            if idx < num_mapped_leagues:
+                league_mapping[league] = idx
+            else:
+                league_mapping[league] = num_mapped_leagues
+
+        # replace the league names with the assigned index (the league has to be pre_processed first, i.e. removing dots, commas and spaces and making it lowercase)
+        dataset_train["league"] = dataset_train["league"].apply(lambda x: league_mapping[x.replace(".", "").replace(",", "").replace(" ", "").lower()])
+        validation_data["league"] = validation_data["league"].apply(lambda x: league_mapping[x.replace(".", "").replace(",", "").replace(" ", "").lower()])
+
+        # save the data with the updated league mapping, unless it already exists
+        save_preprocessed_data(dataset_train, PREPROCESSED_TRAIN_DATA_PATH)
+        save_preprocessed_data(validation_data, PREPROCESSED_VALIDATION_DATA_PATH)
+
+        # save the league mapping to a file
+        with open("data/league_mapping.json", "w") as f:
+            json.dump(league_mapping, f)
+
+    # Preprocess the train data
     dataset_train = preprocess_dataset(
         dataset_train,
         CATEGORICAL_COLUMNS,
@@ -156,16 +228,9 @@ def get_data_loader():
         remove_player_names=True,
     )
 
-    # create the Dataloader for the training data
+    # Create the Dataloader for the training data
     dataset_train = DatasetWithLeagues(dataset_train, normalize=True)
-    data_loader_train = DataLoader(dataset_train, batch_size=32, shuffle=True)
-
-    # 2. Get the validation data from average performance and the given paths
-    em_data = load_dataset(VALIDATION_DATASET_PATH)
-    em_data = add_league_to_dataset(em_data, avg_data)
-
-    # Replace the validation match stats with the average performance
-    validation_data = replace_stats_with_avg(avg_data, em_data, COLUMNS_TO_UPDATE)
+    data_loader_train = DataLoader(dataset_train, batch_size=12, shuffle=True)
 
     # Preprocess the validation data
     validation_data = preprocess_dataset(
@@ -178,60 +243,53 @@ def get_data_loader():
 
     # Create a DataLoader for the validation data
     validation_data = DatasetWithLeagues(validation_data, normalize=True)
-    data_loader_validation = DataLoader(validation_data, batch_size=32, shuffle=True)
+    data_loader_validation = DataLoader(validation_data, batch_size=12, shuffle=False)
 
-    return data_loader_train, data_loader_validation, len(dataset_train.league_mapping)
+    return data_loader_train, data_loader_validation, num_mapped_leagues
 
 
 def train(data_loader_train, data_loader_validation, num_leagues):
+    num_leagues += 1  # Add one for the "other" league
     # Initialize the model
     em_model = EMModelWithLeague(num_leagues=num_leagues).to(DEVICE)
 
     # Load the base model
     assert os.path.exists(
-        INITIAL_MODEL_PATH), f"Initial model path {INITIAL_MODEL_PATH} does not exist. Please run training_step1.py first."  # fmt: skip
+        INITIAL_MODEL_PATH), f"Initial model path {INITIAL_MODEL_PATH} does not exist. Please run training_step1.py first."
 
-    # checking if the device is cpu, if so, we need to map the model to cpu
-    if DEVICE == "cpu":
-        initial_checkpoint = torch.load(INITIAL_MODEL_PATH, map_location=torch.device("cpu"))
-    else:
-        initial_checkpoint = torch.load(INITIAL_MODEL_PATH)
-
+    # Load the initial model weights
+    initial_checkpoint = torch.load(INITIAL_MODEL_PATH, map_location=DEVICE)
     em_model.load_state_dict(initial_checkpoint["state_dict"], strict=False)
     print("Loaded initial EMModel weights.")
-    em_model.to(DEVICE)
-
-    # do an evaluation of the model with the initial weights
-    best_eval_loss, accu = em_model.eval_model(dataloader=data_loader_validation, device=DEVICE)
-    print(f"Initial evaluation loss: {best_eval_loss}")
-    print(f"Initial evaluation accuracy: {accu}")
 
     # Set model to train mode
     em_model.train()
 
     # Freeze the weights of the team classifier
-    em_model.freeze_team_classifier()
+    em_model.freeze_base_model()
 
     # Only optimize the leagueToScalar and game classifier parameters
     optimizer = torch.optim.Adam(
-        list(em_model.leagueToScalar.parameters()) + list(em_model.gameClassifier.parameters()), lr=LEARNING_RATE
+        list(em_model.league_embedding.parameters()) + list(em_model.gameClassifier.parameters()),
+        lr=LEARNING_RATE
     )
 
-    if LOAD_MODEL:
-        assert os.path.exists(MODEL_PATH), f"Model path {MODEL_PATH} does not exist, but LOAD_MODEL is set to True."
-        em_model.load_model(optimizer, LEARNING_RATE, MODEL_PATH)
-        best_eval_loss, _ = em_model.eval_model(dataloader=data_loader_validation, device=DEVICE)
+    if LOAD_MODEL and os.path.exists(MODEL_PATH):
+        checkpoint = torch.load(MODEL_PATH, map_location=DEVICE)
+        em_model.load_state_dict(checkpoint["state_dict"])
+        optimizer.load_state_dict(checkpoint["optimizer"])
+        print(f"Loaded pre-trained model from {MODEL_PATH}")
+
+    # Training loop
+    save_accuracies_train, save_losses_train = {}, {}
+    save_accuracies_validation, save_losses_validation = {}, {}
 
     best_eval_loss = None
+    best_eval_accuracy = None
 
-    # Save the accuracies and losses for plotting with their respective epochs
-    save_accuracies_train = {}
-    save_losses_train = {}
-
-    save_accuracies_validation = {}
-    save_losses_validation = {}
     for num_epoch in range(NUM_EPOCHS):
         em_model.train()
+        # Train
         curr_train_loss, curr_train_accuracy = em_model.train_epoch(
             epoch_idx=num_epoch,
             dataloader=data_loader_train,
@@ -241,28 +299,53 @@ def train(data_loader_train, data_loader_validation, num_leagues):
         )
 
         em_model.eval()
+        # Evaluate
         curr_eval_loss, curr_validation_accuracy = em_model.eval_model(
             dataloader=data_loader_validation, device=DEVICE,
         )
-        print(
-            f"\nValidation Loss after epoch {num_epoch + 1}: {curr_eval_loss} and accuracy: {curr_validation_accuracy}\n"
-        )
+        print(f"Epoch {num_epoch + 1}/{NUM_EPOCHS}")
+        print(f"Train Loss: {curr_train_loss:.4f}, Train Accuracy: {curr_train_accuracy:.4f}")
+        print(f"Val Loss: {curr_eval_loss:.4f}, Val Accuracy: {curr_validation_accuracy:.4f}")
 
-        # save all the accuracies and losses for plotting
+        # Save metrics
         save_accuracies_train[num_epoch] = curr_train_accuracy
         save_losses_train[num_epoch] = curr_train_loss
-
         save_accuracies_validation[num_epoch] = curr_validation_accuracy
         save_losses_validation[num_epoch] = curr_eval_loss
 
+        # Save best model
         if best_eval_loss is None or curr_eval_loss < best_eval_loss:
-            em_model.save_model(optimizer, MODEL_PATH)
             best_eval_loss = curr_eval_loss
+            torch.save({
+                'epoch': num_epoch,
+                'model_state_dict': em_model.state_dict(),
+                'optimizer_state_dict': optimizer.state_dict(),
+                'loss': best_eval_loss,
+            }, MODEL_PATH)
+            print(f"Saved new best model with validation loss: {best_eval_loss:.4f}")
 
-    # show the training and validation loss and accuracy
+        # Save best accuracy model
+        if best_eval_accuracy is None or curr_validation_accuracy >= best_eval_accuracy:
+            best_eval_accuracy = curr_validation_accuracy
+            torch.save({
+                'epoch': num_epoch,
+                'model_state_dict': em_model.state_dict(),
+                'optimizer_state_dict': optimizer.state_dict(),
+                'loss': best_eval_loss,
+            }, Path(MODEL_PATH.__str__() + '_accuracy'))
+            print(f"Saved new best model with validation accuracy: {best_eval_accuracy:.4f}")
+
+    # Plot training results
     plot_loss(save_losses_train, save_losses_validation)
     plot_accuracy(save_accuracies_train, save_accuracies_validation)
 
+    # Final evaluation
+    em_model.eval()
+    final_loss, final_accuracy = em_model.eval_model(dataloader=data_loader_validation, device=DEVICE)
+    print(f"Final evaluation - Loss: {final_loss:.4f}, Accuracy: {final_accuracy:.4f}")
+
+    # best model
+    print(f"Best model - Accuracy: {best_eval_accuracy:.4f}")
 
 def load_avg_performance_data(paths):
     """
