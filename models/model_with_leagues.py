@@ -112,11 +112,7 @@ class EMModelWithLeague(EMModel):
     def freeze_base_model(self):
         for param in self.teamClassifier.parameters():
             param.requires_grad = False
-        #for param in self.gameClassifier.parameters():
-        #    param.requires_grad = False
 
     def unfreeze_base_model(self):
         for param in self.teamClassifier.parameters():
             param.requires_grad = True
-        #for param in self.gameClassifier.parameters():
-        #    param.requires_grad = True
