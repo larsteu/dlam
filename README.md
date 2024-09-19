@@ -1,35 +1,56 @@
 # Predicting National Team Football Match Outcomes
 
-[![PENGWIN2024TASK1](https://img.shields.io/badge/Deep%20Learning%3A%20Architectures%20%26%20Methods-FOOTBALL%20EM%20PREDICTIONS-blue)](https://pengwin.grand-challenge.org/)
+[![PENGWIN2024TASK1](https://img.shields.io/badge/Deep%20Learning%3A%20Architectures%20%26%20Methods-FOOTBALL%20EM%20PREDICTIONS-blue)](https://github.com/larsteu/dlam)
 
-This repository contains our code for our Deep Learning: Architectures \& Methods project. 
+This repository contains the code for our Deep Learning: Architectures \& Methods project (course by TU Darmstadt). This project aims to predict the outcomes of national team football matches using a novel deep learning approach.
+Our final evaluation is on the European Championship 2024 matches.
 
-## TODOs
-- [x] Script to train the base model on league football matches: [training_step_1.py](training_step_1.py)
-- [ ] Weighting players by league: [training_step_2.py](training_step_2.py)
-- [ ] Script to predict EM matches (i.e. outcomes for every group match, then KO-system until finals)
+## Motivation
+- Existing work on football match prediction focuses on statistical models [1-5] and league games [1,2].
+- **Gap:** Deep learning-based prediction for national team games
+- Challenges:
+  - Sparse data for national team matches
+  - Players from different leagues with varying competitive levels
+- Proposed solutions:
+  1. Input: Per-player average match statistics from the past year in their national leagues
+  2. League-dependent weighting of player statistics
+  3. Two-step training process to leverage more data:
+     - Step 1: Train on league data
+     - Step 2: Fine-tune on national matches
+
+## Model Architecture
+
+Our model consists of two main components:
+
+1. Team Embedder: Processes average player performance to create team embeddings
+2. Match Classifier: Takes two team embeddings as input and predicts the match result
+
+### Training Step 1: League Data
+![Model Architecture for Training Step 1](Architecture_Step1.png)
 
 
-### TODOs for Daniel
-Das hier dreht sich alles um Training 2:  
-Das Modell ist fertig implemeniert, das Script in [training_step_2.py](training_step_2.py) dürfte funktionieren sobald du dich um die Daten gekümmert hast: Was fehlt ist:
-- **Trainingsdaten:** Welchen Datensatz benutzen wir? Der braucht die "leagues" column; nationals_league.csv hat diese column beispielsweise nicht?!?
-  - Ändere die Datensätze in Rows 21-22 [training_step_2.py](training_step_2.py)
-    - Training auf Nations League Daten
-- **Validation:**
-  - Das ist aufwändiger! Wir wollen für die Evaluation in training_step_2.py so evaluieren, wie wir auch die EM Daten eingeben werden. D.h. wir geben als Input die Average performance der Spieler des letzten Jahres ein. Dasfür ist bis jetzt noch **nichts** implementiert. Offene TODOs die mir auf die Schnelle einfallen sind:
-    - Welcher Datensatz? Der Datensatz sollte wahrscheinlich aus diesem Jahr stammen, damit wir einfach die durchschnittliche Performance dieses Jahres nehmen können?
-    - Wie bekommen wir für jedes Spiel die Average performance der teilnehmenden Spieler als Input? Eventuell kannst du dir noch eine Dataset-Klasse ähnlich wie die in [dataset.py](dataset.py) bauen.
-    - Validation auf EM Daten mit average performance
-- **Finale Evaluation:** Nachdem [training_step_2.py](training_step_2.py) ausgeführt wurde, haben wir ein fertig trainiertes Modell. Das wollen wir auf zuvor noch nie gesehenen Daten evaluieren. Du solltest ein neues Script hierfür schreiben, kannst aber wahrscheinlich sehr viel deiner Arbeit aus der Validation wiederverwenden. Wir haben also einen Train/Validation/Test split:
-  - Trainings-daten: Sind die Daten, auf denen wir trainieren, d.h. irgendwann overfitten wir.
-  - Validation: Damit verhindern wir das Overfitting des Modells. Wenn wir aber mehrere Modelle in verschiedenen Konfigurationen trainieren, dann overfitten wir indirekt auf den Validation-Daten. Deshalb:
-  - Test: Die finale Evaluation des Modells führen wir auf zuvor noch nie gesehenen Daten durch. Bspw. die aller-letzten Nation-league Spiele oder die EM 2020
-  - Finale Evaluation auf EM24 Daten
+### Training Step 2: National Team Data
+![Model Architecture for Training Step 2](Architecture_Step2.png)
 
+## Results
+
+- Evaluated on Euro 2024 (51 matches)
+- Achieved approximately 59% accuracy
+- Slightly outperformed betting odds
+- **But:** Needs more evaluation: Euro 2024 only has 51 games.
+
+![Evaluation Results on Euro 2024](FinaL_Evaluation.png)
 
 ## Authors
 - Paul Andre Seitz
-- Lars Damian Teubner
 - Leon Arne Engländer
+- Lars Damian Teubner
 - Daniel Kirn
+
+## References
+
+[1] Moustakidis et al. "Predicting Football Team Performance with Explainable AI: Leveraging SHAP to Identify Key Team-Level Performance Metrics". Future Internet, 2023.  
+[2] Choi et al. "Predicting Football Match Outcomes with Machine Learning Approaches". MENDEL, 2023.  
+[3] Pinasthika and Fudholi. "World Cup 2022 Knockout Stage Prediction Using Poisson Distribution Model". IJCCS, 2023.  
+[4] Schauberger and Groll. "Predicting matches in international football tournaments with random forests". Statistical Modelling, 2018.  
+[5] Groll et al. "Prediction of major international soccer tournaments based on team-specific regularized Poisson regression: An application to the FIFA World Cup 2014". Journal of Quantitative Analysis in Sports, 2015.  
