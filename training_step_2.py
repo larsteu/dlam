@@ -13,7 +13,7 @@ from tqdm import tqdm
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 ## Model settings ##
-NUM_EPOCHS = 2048
+NUM_EPOCHS = 1024
 LEARNING_RATE = 1e-4
 
 LOAD_MODEL = False
