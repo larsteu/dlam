@@ -32,6 +32,70 @@ Our model consists of two main components:
 ### Training Step 2: National Team Data
 ![Model Architecture for Training Step 2](Architecture_Step2.png)
 
+## Data
+We retrieved all our data used for training and validation from the [API-sports](https://api-sports.io/) platform.  
+The relevant player statistics are:  
+- player_position
+- minutes_played
+- attempted_shots
+- shots_on_goal
+- goals
+- assists
+- total_passes
+- key_passes
+- pass_completion
+- saves
+- tackles
+- blocks
+- interceptions
+- conceded_goals
+- total_duels
+- won_duels
+- attempted_dribbles
+- successful_dribbles
+- cards
+
+For Training Step 1, we used matches from the following leagues:
+- Premier League
+- La Liga
+- Serie A
+- Bundesliga
+- Ligue 1
+
+For Training Step 2, we used matches from the following national tournaments:
+- UEFA Nations League
+- World Cup 2018, 2022
+- Euro 2020
+
+### Generate our learning data
+To request the data from the API and preprocess it to work with our model, we used the python scripts in the 'data' folder
+REQUIRED: You need to have an API key from [API-sports](https://api-sports.io/) to use the scripts and use the API internal IDs for the leagues / tournaments
+
+- `get_training_data_with_avg.py` creates a csv with the all matches from a given league (or tournament) in a given timeframe and the average player statistics of the last year for each team
+- `api_request.py` creates a csv with the all matches from a given league (or tournament) in a given timeframe and the player statistics for each player (*not average!*)
+- `get_prediction_data.py` creates folders for each participating team in a tournament filled with the average player statistics of the last year for each player
+
+#### Example Generation for Training Step 1
+Either use average data for training:
+```bash
+python get_training_data_with_avg.py <api_key> <league_id> <start_season> <end_season> <output_file>
+```
+Or (non-average) match data:
+```bash
+python api_request.py <api_key> <league_id> <start_season-end_season> <output_file>
+```
+
+#### Example Generation for Training Step 2
+*currently still needs the match data and the average player statistics of a given year separately, support for using data from `get_training_data_with_avg.py` tbd*  
+  
+First get all the matches of a tournament using `api_request.py`
+```bash
+python api_request.py <api_key> <tournament_id> <start_season-end_season> <output_file>
+```
+Then get the average player statistics for each team and each season in the tournament
+```bash
+python get_prediction_data.py <api_key> <tournament_id> <season> <output_folder>
+```
 ## Results
 
 - Evaluated on Euro 2024 (51 matches)
@@ -53,4 +117,4 @@ Our model consists of two main components:
 [2] Choi et al. "Predicting Football Match Outcomes with Machine Learning Approaches". MENDEL, 2023.  
 [3] Pinasthika and Fudholi. "World Cup 2022 Knockout Stage Prediction Using Poisson Distribution Model". IJCCS, 2023.  
 [4] Schauberger and Groll. "Predicting matches in international football tournaments with random forests". Statistical Modelling, 2018.  
-[5] Groll et al. "Prediction of major international soccer tournaments based on team-specific regularized Poisson regression: An application to the FIFA World Cup 2014". Journal of Quantitative Analysis in Sports, 2015.  
+[5] Groll et al. "Prediction of major international soccer tournaments based on team-specific regularized Poisson regression: An application to the FIFA World Cup 2014". Journal of Quantitative Analysis in Sports, 2015.
