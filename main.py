@@ -1,5 +1,7 @@
 import json
+import os
 
+import pandas as pd
 import torch
 from pathlib import Path
 import numpy
@@ -9,10 +11,10 @@ from torch.utils.data import DataLoader
 from dataset import DatasetWithLeagues, DatasetWithoutLeagues
 from models.model import EMModel
 from models.model_with_leagues import EMModelWithLeague
-from training_step_2 import preprocess_or_load_data, load_avg_performance_data, COLUMNS_TO_UPDATE, AVERAGE_PERFORMANCE_PATHS, CATEGORICAL_COLUMNS, DROP_COLUMNS
-from utils import preprocess_dataset
+from training_step_2 import insert_avg, load_avg_performance_data, COLUMNS_TO_UPDATE, AVERAGE_PERFORMANCE_PATHS, CATEGORICAL_COLUMNS, DROP_COLUMNS
+from utils import preprocess_dataset, load_dataset
 
-MODEL_PATH = Path("./trained_models/league_model_accuracy")
+MODEL_PATH = Path("./trained_models/league_model")
 DEVICE = torch.device("cpu")
 
 DATA_PATH = ["./data/evaluation/em24.csv"]
@@ -40,9 +42,16 @@ if __name__ == "__main__":
     # Set the model to evaluation mode
     em_model.eval()
 
-    # Load the data
-    avg_data = load_avg_performance_data(AVERAGE_PERFORMANCE_PATHS)
-    data = preprocess_or_load_data(DATA_PATH, avg_data, COLUMNS_TO_UPDATE, "./data/evaluation/em24_processed.csv")
+    # check if the temp file exists
+    if os.path.exists("./data/evaluation.csv"):
+            data = pd.read_csv("./data/evaluation.csv")
+    else:
+        # Load the data
+        avg_data = load_avg_performance_data(AVERAGE_PERFORMANCE_PATHS)
+        data = insert_avg(DATA_PATH, avg_data, COLUMNS_TO_UPDATE)
+
+        # save current dataset to a file named "./data/evaluation.csv"
+        data.to_csv("./data/evaluation.csv", index=False)
 
     # get the columns match_id, home_team and away_team from the data in the same order
     matches = data[["match_nr", "team"]].drop_duplicates().reset_index(drop=True)
@@ -95,13 +104,15 @@ if __name__ == "__main__":
             argmax_target = numpy.argmax(targets)
 
             if argmax_pred == argmax_target:
+                print("correct")
                 correct += 1
             else:
+                print("incorrect")
                 incorrect += 1
 
             # print the prediction and the teams that played
-            print(f"Match {num_match}: {home_team} vs {away_team} - Prediction: {prediction}")
-            print(f"True Result was {targets}\n---------------------------------------------------------------------\n")
+            #print(f"Match {num_match}: {home_team} vs {away_team} - Prediction: {prediction}")
+            #print(f"True Result was {targets}\n---------------------------------------------------------------------\n")
 
             num_match += 1
     else:

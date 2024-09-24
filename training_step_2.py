@@ -3,7 +3,8 @@ import os.path
 
 import pandas as pd
 import torch
-from torch.utils.data import DataLoader
+from pyparsing import empty
+import torch.utils.data
 from models.model_with_leagues import EMModelWithLeague
 from dataset import DatasetWithLeagues
 from utils import load_dataset, preprocess_dataset, plot_loss, plot_accuracy
@@ -13,27 +14,37 @@ from tqdm import tqdm
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 ## Model settings ##
-NUM_EPOCHS = 1024
+NUM_EPOCHS = 512
 LEARNING_RATE = 1e-4
+WORKERS=6
+
+FINETUNE_EPOCHS = 256
 
 LOAD_MODEL = False
 MODEL_PATH = Path("./trained_models/league_model")
+FINETUNE_MODEL_PATH = Path("./trained_models/finetuned_league_model")
 
 INITIAL_MODEL_PATH = Path("./trained_models/base_model")  # Path to the initial EMModel checkpoint
 
 # New constants for saved data
-PREPROCESSED_TRAIN_DATA_PATH = "data/preprocessed_train_data.csv"
-PREPROCESSED_VALIDATION_DATA_PATH = "data/preprocessed_validation_data.csv"
+PREPROCESSED_DATA_PATH = "data/preprocessed_train_data.csv"
+PREPROCESSED_FINETUNING_PATH = "data/preprocessed_finetune_data.csv"
+RELOAD = False
 
 ## Dataset properties ##
 TRAIN_DATASET_PATHS = [
-    "data/nations_league_new.csv",
-    "data/evaluation/em20.csv",
     "data/evaluation/wm18.csv",
     "data/evaluation/wm22.csv",
+    "data/nations_league_new.csv",
+    "data/evaluation/em20.csv",
+]
+# path to datasets that are more relevant for the use case (e.g. an older iteration of the relevant tournament)
+FINETUNE = [
+]
+TRAIN_DATASET_PATHS_WITH_AVG = [
+    #"data/champions_league_1518.csv",
 ]
 VALIDATION_DATASET_PATH = [
-    "data/evaluation/em24.csv",
 ]
 AVERAGE_PERFORMANCE_PATHS = [
     (2020, "data/4_2020"),
@@ -148,12 +159,7 @@ def load_preprocessed_data(file_path):
     return pd.read_csv(file_path)
 
 
-def preprocess_or_load_data(dataset_paths, avg_data, columns_to_update, output_path):
-    if os.path.exists(output_path):
-        print(f"Loading preprocessed data from {output_path}")
-        return load_preprocessed_data(output_path)
-
-    print(f"Preprocessing data for {output_path}")
+def insert_avg(dataset_paths, avg_data, columns_to_update):
     dataset = load_dataset(dataset_paths)
     dataset = add_league_to_dataset(dataset, avg_data)
     dataset = replace_stats_with_avg(avg_data, dataset, columns_to_update)
@@ -180,47 +186,46 @@ def get_leagues_mapping(data):
     return league_mapping
 
 def get_data_loader():
-    # Load the average performance data for all the relevant seasons
-    avg_data = load_avg_performance_data(AVERAGE_PERFORMANCE_PATHS)
 
-    # Preprocess and save/load training data
-    dataset_train = preprocess_or_load_data(TRAIN_DATASET_PATHS, avg_data, COLUMNS_TO_UPDATE,
-                                             PREPROCESSED_TRAIN_DATA_PATH)
+    # check if the preprocessed data exists
+    if os.path.exists(PREPROCESSED_DATA_PATH) and not RELOAD:
+        dataset_train = load_preprocessed_data(PREPROCESSED_DATA_PATH)
+    else:
+        # Load the average performance data for all the relevant seasons
+        avg_data = load_avg_performance_data(AVERAGE_PERFORMANCE_PATHS)
 
-    # Preprocess and save/load validation data
-    validation_data = preprocess_or_load_data(VALIDATION_DATASET_PATH, avg_data, COLUMNS_TO_UPDATE,
-                                               PREPROCESSED_VALIDATION_DATA_PATH)
+        # Preprocess and save/load training data
+        dataset_train = insert_avg(TRAIN_DATASET_PATHS, avg_data, COLUMNS_TO_UPDATE)
+
+        # save to the preprocessed path
+        save_preprocessed_data(dataset_train, PREPROCESSED_DATA_PATH)
+
+    if TRAIN_DATASET_PATHS_WITH_AVG.__len__() != 0:
+        # get the already average match data and append it to the dataset
+        dataset_train = pd.concat([dataset_train, load_dataset(TRAIN_DATASET_PATHS_WITH_AVG)])
 
     num_mapped_leagues = 35 # when you change this, you have to re-run the preprocessing
-    if not (os.path.exists(PREPROCESSED_TRAIN_DATA_PATH) and os.path.exists(PREPROCESSED_VALIDATION_DATA_PATH)):
-        # get the combined league mapping
-        league_mapping = get_leagues_mapping(dataset_train)
-        league_mapping.update(get_leagues_mapping(validation_data))
+    # get the combined league mapping
+    league_mapping = get_leagues_mapping(dataset_train)
 
-        # sort the league mapping by the number of occurences
-        league_mapping = dict(sorted(league_mapping.items(), key=lambda item: item[1], reverse=True))
+    # sort the league mapping by the number of occurences
+    league_mapping = dict(sorted(league_mapping.items(), key=lambda item: item[1], reverse=True))
 
-        # go over the league mapping and assign an index to the top N leagues (rest will be assigned to "other")
-        for idx, league in enumerate(list(league_mapping.keys())):
-            if idx < num_mapped_leagues:
-                league_mapping[league] = idx
-            else:
-                league_mapping[league] = num_mapped_leagues
+    # go over the league mapping and assign an index to the top N leagues (rest will be assigned to "other")
+    for idx, league in enumerate(list(league_mapping.keys())):
+        if idx < num_mapped_leagues:
+            league_mapping[league] = idx
+        else:
+            league_mapping[league] = num_mapped_leagues
 
-        # replace the league names with the assigned index (the league has to be pre_processed first, i.e. removing dots, commas and spaces and making it lowercase)
-        dataset_train["league"] = dataset_train["league"].apply(lambda x: league_mapping[x.replace(".", "").replace(",", "").replace(" ", "").lower()])
-        validation_data["league"] = validation_data["league"].apply(lambda x: league_mapping[x.replace(".", "").replace(",", "").replace(" ", "").lower()])
+    # replace the league names with the assigned index (the league has to be pre_processed first, i.e. removing dots, commas and spaces and making it lowercase)
+    dataset_train["league"] = dataset_train["league"].apply(lambda x: league_mapping[x.replace(".", "").replace(",", "").replace(" ", "").lower()])
 
-        # save the data with the updated league mapping, unless it already exists
-        save_preprocessed_data(dataset_train, PREPROCESSED_TRAIN_DATA_PATH)
-        save_preprocessed_data(validation_data, PREPROCESSED_VALIDATION_DATA_PATH)
+    # save the league mapping to a file
+    with open("data/league_mapping.json", "w") as f:
+        json.dump(league_mapping, f)
 
-        # save the league mapping to a file
-        with open("data/league_mapping.json", "w") as f:
-            json.dump(league_mapping, f)
-
-    # Preprocess the train data
-    dataset_train = preprocess_dataset(
+    full_dataset = preprocess_dataset(
         dataset_train,
         CATEGORICAL_COLUMNS,
         MAPPINGS_FILE_PATH_TRAIN,
@@ -228,24 +233,142 @@ def get_data_loader():
         remove_player_names=True,
     )
 
-    # Create the Dataloader for the training data
-    dataset_train = DatasetWithLeagues(dataset_train, normalize=True)
-    data_loader_train = DataLoader(dataset_train, batch_size=12, shuffle=True)
+    # Create the full dataset
+    full_dataset = DatasetWithLeagues(full_dataset, normalize=True)
 
-    # Preprocess the validation data
-    validation_data = preprocess_dataset(
-        validation_data,
+    # Use random_split to create the split
+    dataset_train, validation_data = torch.utils.data.random_split(full_dataset, [0.8, 0.2])
+
+    # Create a DataLoader for the training data
+    data_loader_train = torch.utils.data.DataLoader(dataset_train, batch_size=16, shuffle=True, num_workers=WORKERS)
+    # Create a DataLoader for the validation data
+    data_loader_validation = torch.utils.data.DataLoader(validation_data, batch_size=16, shuffle=True, num_workers=WORKERS)
+
+    return data_loader_train, data_loader_validation, num_mapped_leagues
+
+def finetune_model(num_leagues):
+    num_leagues += 1
+    em_model = EMModelWithLeague(num_leagues=num_leagues).to(DEVICE)
+
+    # Load the base model
+    assert os.path.exists(
+        INITIAL_MODEL_PATH), f"Initial model path {INITIAL_MODEL_PATH} does not exist. Please run training_step1.py first."
+
+    # Load the initial model weights
+    initial_checkpoint = torch.load(MODEL_PATH, map_location=DEVICE)
+    em_model.load_state_dict(initial_checkpoint["model_state_dict"], strict=False)
+    print("Loaded initial EMModel weights.")
+
+    # get the league mapping from the file
+    with (open("data/league_mapping.json", "r") as f):
+        league_mapping = json.load(f)
+
+    # load the average data (or get it from disk if it exists)
+    if os.path.exists(PREPROCESSED_FINETUNING_PATH) and not RELOAD:
+        # load from disk
+        finetune_data = load_preprocessed_data(PREPROCESSED_FINETUNING_PATH)
+    else:
+        # Load the average performance data for all the relevant seasons
+        avg_data = load_avg_performance_data(AVERAGE_PERFORMANCE_PATHS)
+
+        # Preprocess and save/load training data
+        finetune_data = insert_avg(FINETUNE, avg_data, COLUMNS_TO_UPDATE)
+
+        # save to the preprocessed path
+        save_preprocessed_data(finetune_data, PREPROCESSED_FINETUNING_PATH)
+
+    # replace the league names with the assigned index (the league has to be pre_processed first, i.e. removing dots, commas and spaces and making it lowercase)
+    finetune_data["league"] = finetune_data["league"].apply(
+        lambda x: league_mapping.get(
+            x.replace(".", "").replace(",", "").replace(" ", "").lower(),
+            max(league_mapping.values())  # This will be the last index
+        )
+    )
+
+    finetune_data = preprocess_dataset(
+        finetune_data,
         CATEGORICAL_COLUMNS,
-        MAPPINGS_FILE_PATH_TEST,
-        DROP_COLUMNS + ["team"],
+        MAPPINGS_FILE_PATH_TRAIN,
+        DROP_COLUMNS,
         remove_player_names=True,
     )
 
-    # Create a DataLoader for the validation data
-    validation_data = DatasetWithLeagues(validation_data, normalize=True)
-    data_loader_validation = DataLoader(validation_data, batch_size=12, shuffle=False)
+    # Create the full dataset
+    finetune_data = DatasetWithLeagues(finetune_data, normalize=True)
 
-    return data_loader_train, data_loader_validation, num_mapped_leagues
+    # Use random_split to create the split
+    dataset_train, validation_data = torch.utils.data.random_split(finetune_data, [0.8, 0.2])
+
+    # Create a DataLoader for the training data
+    data_loader_train = torch.utils.data.DataLoader(dataset_train, batch_size=4, shuffle=True)
+    # Create a DataLoader for the validation data
+    data_loader_validation = torch.utils.data.DataLoader(validation_data, batch_size=4, shuffle=True)
+
+    finetune_rate = 1e-4
+    # Only optimize the leagueToScalar and game classifier parameters
+    optimizer = torch.optim.Adam(
+        list(em_model.league_embedding.parameters()) + list(em_model.gameClassifier.parameters()),
+        lr=finetune_rate
+    )
+
+    # Training loop
+    save_accuracies_train, save_losses_train = {}, {}
+    save_accuracies_validation, save_losses_validation = {}, {}
+
+    best_eval_loss = None
+    best_eval_accuracy = None
+
+    for num_epoch in range(FINETUNE_EPOCHS):
+        em_model.train()
+        # Train
+        curr_train_loss, curr_train_accuracy = em_model.train_epoch(
+            epoch_idx=num_epoch,
+            dataloader=data_loader_train,
+            loss_fn=em_model.get_loss(),
+            optimizer=optimizer,
+            device=DEVICE,
+        )
+
+        em_model.eval()
+        # Evaluate
+        curr_eval_loss, curr_validation_accuracy = em_model.eval_model(
+            dataloader=data_loader_validation, device=DEVICE,
+        )
+        print(f"Epoch {num_epoch + 1}/{NUM_EPOCHS}")
+        print(f"Train Loss: {curr_train_loss:.4f}, Train Accuracy: {curr_train_accuracy:.4f}")
+        print(f"Val Loss: {curr_eval_loss:.4f}, Val Accuracy: {curr_validation_accuracy:.4f}")
+
+        # Save metrics
+        save_accuracies_train[num_epoch] = curr_train_accuracy
+        save_losses_train[num_epoch] = curr_train_loss
+        save_accuracies_validation[num_epoch] = curr_validation_accuracy
+        save_losses_validation[num_epoch] = curr_eval_loss
+
+        # Save best model
+        if best_eval_loss is None or curr_eval_loss < best_eval_loss:
+            best_eval_loss = curr_eval_loss
+            torch.save({
+                'epoch': num_epoch,
+                'model_state_dict': em_model.state_dict(),
+                'optimizer_state_dict': optimizer.state_dict(),
+                'loss': best_eval_loss,
+            }, FINETUNE_MODEL_PATH)
+            print(f"Saved new best model with validation loss: {best_eval_loss:.4f}")
+
+        # Save best accuracy model
+        if best_eval_accuracy is None or curr_validation_accuracy >= best_eval_accuracy:
+            best_eval_accuracy = curr_validation_accuracy
+            torch.save({
+                'epoch': num_epoch,
+                'model_state_dict': em_model.state_dict(),
+                'optimizer_state_dict': optimizer.state_dict(),
+                'loss': best_eval_loss,
+            }, Path(FINETUNE_MODEL_PATH.__str__() + '_accuracy'))
+            print(f"Saved new best model with validation accuracy: {best_eval_accuracy:.4f}")
+
+    # Plot training results
+    plot_loss(save_losses_train, save_losses_validation)
+    plot_accuracy(save_accuracies_train, save_accuracies_validation)
 
 
 def train(data_loader_train, data_loader_validation, num_leagues):
@@ -276,7 +399,7 @@ def train(data_loader_train, data_loader_validation, num_leagues):
 
     if LOAD_MODEL and os.path.exists(MODEL_PATH):
         checkpoint = torch.load(MODEL_PATH, map_location=DEVICE)
-        em_model.load_state_dict(checkpoint["state_dict"])
+        em_model.load_state_dict(checkpoint["model_state_dict"])
         optimizer.load_state_dict(checkpoint["optimizer"])
         print(f"Loaded pre-trained model from {MODEL_PATH}")
 
@@ -347,6 +470,8 @@ def train(data_loader_train, data_loader_validation, num_leagues):
     # best model
     print(f"Best model - Accuracy: {best_eval_accuracy:.4f}")
 
+    return em_model
+
 def load_avg_performance_data(paths):
     """
     Loads the average performance data from the given paths
@@ -381,4 +506,8 @@ def load_avg_performance_data(paths):
 
 if __name__ == "__main__":
     data_loader_train, data_loader_test, num_leagues = get_data_loader()
-    train(data_loader_train, data_loader_test, num_leagues)
+    # normal training
+    #model = train(data_loader_train, data_loader_test, num_leagues)
+    # potential finetuning
+    if not FINETUNE.__len__() == 0:
+        finetune_model(num_leagues)
